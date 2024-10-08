@@ -6,24 +6,32 @@
 ;   | $$  | $$| $$  | $$  | $$ /$$| $$        | $$  | $$| $$      | $$\  $$
 ;   | $$  | $$| $$  | $$  |  $$$$/| $$        | $$  | $$| $$      | $$ \  $$
 ;   |__/  |__/|__/  |__/   \___/  |__/        |__/  |__/|__/      |__/  \__/
-; 
+
 ; ------------------------------------------------------------------------------
 ;                               Configuration
 ; ------------------------------------------------------------------------------
 ; POLL_INTERVAL (Seconds):
 ;   This is the interval which Anti-AFK checks for new windows and calculates
 ;   how much time is left before exisiting windows become inactve.
+;   Default
+;   5
 POLL_INTERVAL := 5
 
 ; WINDOW_TIMEOUT (Minutes):
 ;   This is the amount of time before a window is considered inactive. After
 ;   a window has timed out, Anti-AFK will start resetting any AFK timers.
+;   Default
+;   10
 WINDOW_TIMEOUT := 10
 
 ; TASK (Function):
 ;   This is a function that will be ran by the script in order to reset any
 ;   AFK timers. The target window will have focus while it is being executed.
 ;   You can customise this function freely - just make sure it resets the timer.
+;   Default
+;   Send("{Space Down}")
+;   Sleep(50)
+;   Send("{Space Up}")
 TASK := () => (
     Send("{Space Down}")
     Sleep(50)
@@ -33,6 +41,8 @@ TASK := () => (
 ; TASK_INTERVAL (Minutes):
 ;   This is the amount of time the script will wait after calling the TASK function
 ;   before calling it again.
+;   Default 
+;   15
 TASK_INTERVAL := 15
 
 ; BLOCK_INPUT (Boolean):
@@ -40,18 +50,34 @@ TASK_INTERVAL := 15
 ;   windows and sends input. This requires administrator permissions and is
 ;   therefore disabled by default. If input is not blocked, keystrokes from the
 ;   user may 'leak' into the window while Anti-AFK moves it into focus.
+;   Default False
 BLOCK_INPUT := False
 
 ; PROCESS_LIST (Array):
 ;   This is a list of processes that Anti-AFK will montior. Any windows that do
 ;   not belong to any of these processes will be ignored.
-PROCESS_LIST := ["notepad.exe", "wordpad.exe"]
+;   Default
+;   [
+;       "notepad.exe", "wordpad.exe"
+;   ]
+PROCESS_LIST := [
+    "notepad.exe", "wordpad.exe"
+]
 
 ; PROCESS_OVERRIDES (Associative Array):
 ;   This allows you to specify specific values of WINDOW_TIMEOUT, TASK_INTERVAL,
 ;   TASK and BLOCK_INPUT for specific processes. This is helpful if different
 ;   games consider you AFK at wildly different times, or if the function to
 ;   reset the AFK timer does not work as well across different applications.
+;   Default
+;   "wordpad.exe", Map(
+;       "WINDOW_TIMEOUT", 5,
+;       "TASK_INTERVAL", 5,
+;       "BLOCK_INPUT", False,
+;       "TASK", () => (
+;           Send("w")
+;       )
+;    )
 PROCESS_OVERRIDES := Map(
     "wordpad.exe", Map(
         "WINDOW_TIMEOUT", 5,
@@ -66,6 +92,7 @@ PROCESS_OVERRIDES := Map(
 ; ------------------------------------------------------------------------------
 ;                                    Script
 ; ------------------------------------------------------------------------------
+#Requires Autohotkey v2.0 64-Bit
 #SingleInstance
 InstallKeybdHook()
 InstallMouseHook()
@@ -159,7 +186,7 @@ getWindow(window_ID, process_ID, process_name, fallback)
 {
     if (WinExist("ahk_id " window_ID))
         return "ahk_id " window_ID
-    
+
     if (WinExist("ahk_pid " process_ID))
         return "ahk_pid " process_ID
 
@@ -200,7 +227,7 @@ activateWindow(target)
 ; Calculate the number of polls it will take for the time (in seconds) to pass.
 getLoops(value)
 {
-    return Max(1, Round(value*60 / POLL_INTERVAL))
+    return Max(1, Round(value * 60 / POLL_INTERVAL))
 }
 
 ; Find and return a specific attribute for a program, prioritising values in PROCESS_OVERRIDES.
@@ -209,7 +236,7 @@ getValue(value, program)
 {
     if (PROCESS_OVERRIDES.Has(program) && PROCESS_OVERRIDES[program].Has(value))
         return PROCESS_OVERRIDES[program][value]
-    
+
     return %value%
 }
 
@@ -271,7 +298,7 @@ updateSysTray(windowList)
     ; sending input. We update the SysTray to with the number of windows
     ; that are being managed.
     if (managed.Count > 0)
-    {       
+    {
         TraySetIcon(A_AhkPath, 2)
 
         if (monitor.Count > 0)
@@ -304,7 +331,7 @@ updateSysTray(windowList)
     ; them in case they go inactive, the SysTray is updated with the number
     ; of windows that we are watching.
     if (monitor.Count > 0)
-    {      
+    {
         TraySetIcon(A_AhkPath, 3)
 
         newTip := "Monitoring:`n"
@@ -358,7 +385,7 @@ tickWindowList(windowList)
             ; Decrement the time left, if it reaches zero reset the AFK timer. Then reset the time
             ; left and repeat.
             timeLeft["value"] -= 1
-            
+
             if (timeLeft["value"] = 0)
             {
                 timeLeft := Map(
@@ -395,4 +422,4 @@ updateScript()
 
 ; Start Anti-AFK
 updateScript()
-SetTimer(updateScript, POLL_INTERVAL*1000)
+SetTimer(updateScript, POLL_INTERVAL * 1000)
