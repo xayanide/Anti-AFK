@@ -110,7 +110,9 @@ if (!A_IsAdmin)
     for program, override in PROCESS_OVERRIDES
     {
         if (override.Has("BLOCK_INPUT") && override["BLOCK_INPUT"])
+        {
             requireAdmin := True
+        }
     }
 
     if (requireAdmin)
