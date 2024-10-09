@@ -10,6 +10,7 @@
 ; ------------------------------------------------------------------------------
 ;                               Configuration
 ; ------------------------------------------------------------------------------
+
 ; POLL_INTERVAL (Integer, Seconds):
 ;   This is the interval which Anti-AFK checks for new windows and calculates
 ;   how much time is left before exisiting windows become inactve.
