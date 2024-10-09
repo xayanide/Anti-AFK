@@ -49,7 +49,8 @@ TASK_INTERVAL := 15
 ;   windows and sends input. This requires administrator permissions and is
 ;   therefore disabled by default. If input is not blocked, keystrokes from the
 ;   user may 'leak' into the window while Anti-AFK moves it into focus.
-;   Default False
+;   Default 
+;   False
 BLOCK_INPUT := False
 
 ; PROCESS_LIST (Array):
