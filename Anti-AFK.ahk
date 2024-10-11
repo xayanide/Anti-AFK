@@ -35,7 +35,7 @@ WINDOW_TIMEOUT := 10
 ;   Send("{Space Up}")
 TASK := () => (
     Send("{Space Down}")
-    Sleep(50)
+    Sleep(1)
     Send("{Space Up}")
 )
 
@@ -53,14 +53,14 @@ TASK_INTERVAL := 15
 ;   user may 'leak' into the window while Anti-AFK moves it into focus.
 ;   Default value
 ;   False
-BLOCK_INPUT := False
+BLOCK_INPUT := True
 
 ; PROCESS_LIST (String Array):
 ;   This is a list of processes that Anti-AFK will montior. Any windows that do
 ;   not belong to any of these processes will be ignored.
 ;   Default value
 ;   ["notepad.exe", "wordpad.exe"]
-PROCESS_LIST := ["notepad.exe", "wordpad.exe"]
+PROCESS_LIST := ["RobloxPlayerBeta.exe"]
 
 ; PROCESS_OVERRIDES (Associative Array):
 ;   This allows you to specify specific values of WINDOW_TIMEOUT, TASK_INTERVAL,
@@ -78,16 +78,7 @@ PROCESS_LIST := ["notepad.exe", "wordpad.exe"]
 ;           )
 ;       )
 ;   )
-PROCESS_OVERRIDES := Map(
-    "wordpad.exe", Map(
-        "WINDOW_TIMEOUT", 5,
-        "TASK_INTERVAL", 5,
-        "BLOCK_INPUT", False,
-        "TASK", () => (
-            Send("w")
-        )
-    )
-)
+PROCESS_OVERRIDES := Map()
 
 ; ------------------------------------------------------------------------------
 ;                                    Script
