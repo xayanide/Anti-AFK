@@ -27,7 +27,8 @@ WINDOW_TIMEOUT := 10
 TASK := () => (
     Send("{Space Down}")
     Sleep(50)
-    Send("{Space Up}"))
+    Send("{Space Up}")
+)
 
 ; TASK_INTERVAL (Minutes):
 ;   This is the amount of time the script will wait after calling the TASK function
@@ -46,7 +47,8 @@ BLOCK_INPUT := False
 ;   not belong to any of these processes will be ignored.
 PROCESS_LIST := [
     "notepad.exe",
-    "wordpad.exe"]
+    "wordpad.exe"
+]
 
 ; PROCESS_OVERRIDES (Associative Array):
 ;   This allows you to specify specific values of WINDOW_TIMEOUT, TASK_INTERVAL,
@@ -59,12 +61,15 @@ PROCESS_OVERRIDES := Map(
         "TASK_INTERVAL", 5,
         "BLOCK_INPUT", False,
         "TASK", () => (
-            Send("w"))))
+            Send("w")
+        )
+    )
+)
 
 ; ------------------------------------------------------------------------------
 ;                                    Script
 ; ------------------------------------------------------------------------------
-#Requires AutoHotkey v2.0 64-bit
+#Requires AutoHotkey v2.0
 #SingleInstance
 InstallKeybdHook()
 InstallMouseHook()
@@ -125,13 +130,13 @@ resetTimer(windowID, resetAction, DenyInput)
     ; The Desktop's window has a class of "WorkerW" or "Progman".
     if (!activeInfo.Count || (activeInfo["CLS"] = "WorkerW" || activeInfo["CLS"] = "Progman"))
     {
-        activateWindow(targetWindow)
+        activateWindow targetWindow
     }
 
     ; Send input directly if the target window is already active.
     if (WinActive(targetWindow))
     {
-        resetAction()
+        resetAction
         return
     }
 
@@ -140,9 +145,9 @@ resetTimer(windowID, resetAction, DenyInput)
         BlockInput "On"
     }
     WinSetTransparent 0, targetWindow
-    activateWindow(targetWindow)
+    activateWindow targetWindow
 
-    resetAction()
+    resetAction
 
     WinMoveBottom targetWindow
     WinSetTransparent "Off", targetWindow
@@ -154,7 +159,7 @@ resetTimer(windowID, resetAction, DenyInput)
         targetWindow
     )
 
-    activateWindow(oldActiveWindow)
+    activateWindow oldActiveWindow
 
     if (DenyInput && A_IsAdmin)
     {
@@ -293,12 +298,12 @@ updateSysTray(windowList)
 
         if (managed[program] = 0)
         {
-            managed.Delete(program)
+            managed.Delete program
         }
 
         if (monitor[program] = 0)
         {
-            monitor.Delete(program)
+            monitor.Delete program
         }
     }
 
@@ -407,10 +412,7 @@ tickWindowList(windowList)
                     "type", "Interval",
                     "value", getLoops(getValue("TASK_INTERVAL", program)))
 
-                resetTimer(
-                    handle,
-                    getValue("TASK", program),
-                    getValue("BLOCK_INPUT", program))
+                resetTimer handle, getValue("TASK", program), getValue("BLOCK_INPUT", program)
             }
 
             windowList[program][handle] := timeLeft
@@ -430,9 +432,9 @@ updateScript()
     windowList := updateWindowList(windowList, PROCESS_LIST)
     windowList := tickWindowList(windowList)
 
-    updateSysTray(windowList)
+    updateSysTray windowList
 }
 
 ; Start Anti-AFK
-updateScript()
-SetTimer(updateScript, POLL_INTERVAL * 1000)
+updateScript
+SetTimer updateScript, POLL_INTERVAL * 1000
