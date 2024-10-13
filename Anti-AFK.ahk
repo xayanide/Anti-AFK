@@ -1,70 +1,54 @@
-;     /$$$$$$              /$$     /$$          /$$$$$$  /$$$$$$$$ /$$   /$$
-;    /$$__  $$            | $$    |__/         /$$__  $$| $$_____/| $$  /$$/
-;   | $$  \ $$ /$$$$$$$  /$$$$$$   /$$        | $$  \ $$| $$      | $$ /$$/
-;   | $$$$$$$$| $$__  $$|_  $$_/  | $$ /$$$$$$| $$$$$$$$| $$$$$   | $$$$$/
-;   | $$__  $$| $$  \ $$  | $$    | $$|______/| $$__  $$| $$__/   | $$  $$
-;   | $$  | $$| $$  | $$  | $$ /$$| $$        | $$  | $$| $$      | $$\  $$
-;   | $$  | $$| $$  | $$  |  $$$$/| $$        | $$  | $$| $$      | $$ \  $$
-;   |__/  |__/|__/  |__/   \___/  |__/        |__/  |__/|__/      |__/  \__/
-;
-; ------------------------------------------------------------------------------
-;                               Configuration
-; ------------------------------------------------------------------------------
+global config := Map()
 ; POLL_INTERVAL (Seconds):
 ;   This is the interval which Anti-AFK checks for new windows and calculates
 ;   how much time is left before exisiting windows become inactve.
-POLL_INTERVAL := 5
+config["POLL_INTERVAL"] := 1
 
 ; WINDOW_TIMEOUT (Minutes):
 ;   This is the amount of time before a window is considered inactive. After
 ;   a window has timed out, Anti-AFK will start resetting any AFK timers.
-WINDOW_TIMEOUT := 10
+config["WINDOW_TIMEOUT"] := 1
 
 ; TASK (Function):
 ;   This is a function that will be ran by the script in order to reset any
 ;   AFK timers. The target window will have focus while it is being executed.
 ;   You can customise this function freely - just make sure it resets the timer.
-TASK := () => (
+config["TASK"] := () => (
     Send("{Space Down}")
-    Sleep(50)
-    Send("{Space Up}")
-)
+    Sleep(1)
+    Send("{Space Up}"))
 
 ; TASK_INTERVAL (Minutes):
 ;   This is the amount of time the script will wait after calling the TASK function
 ;   before calling it again.
-TASK_INTERVAL := 15
+config["TASK_INTERVAL"] := 1
 
-; BLOCK_INPUT (Boolean):
+; IS_INPUT_BLOCK (Boolean):
 ;   This tells the script whether you want to block input whilst it shuffles
 ;   windows and sends input. This requires administrator permissions and is
 ;   therefore disabled by default. If input is not blocked, keystrokes from the
 ;   user may 'leak' into the window while Anti-AFK moves it into focus.
-BLOCK_INPUT := False
+config["IS_INPUT_BLOCK"] := false
 
-; PROCESS_LIST (Array):
+; PROCESSES (Array):
 ;   This is a list of processes that Anti-AFK will montior. Any windows that do
 ;   not belong to any of these processes will be ignored.
-PROCESS_LIST := [
-    "notepad.exe",
-    "wordpad.exe"
-]
+config["PROCESSES"] := [
+    "RobloxPlayerBeta.exe",
+    "notepad.exe"]
 
 ; PROCESS_OVERRIDES (Associative Array):
 ;   This allows you to specify specific values of WINDOW_TIMEOUT, TASK_INTERVAL,
-;   TASK and BLOCK_INPUT for specific processes. This is helpful if different
+;   TASK and IS_INPUT_BLOCK for specific processes. This is helpful if different
 ;   games consider you AFK at wildly different times, or if the function to
 ;   reset the AFK timer does not work as well across different applications.
-PROCESS_OVERRIDES := Map(
+config["PROCESS_OVERRIDES"] := Map(
     "wordpad.exe", Map(
         "WINDOW_TIMEOUT", 5,
         "TASK_INTERVAL", 5,
-        "BLOCK_INPUT", False,
+        "IS_INPUT_BLOCK", false,
         "TASK", () => (
-            Send("w")
-        )
-    )
-)
+            Send("w"))))
 
 ; ------------------------------------------------------------------------------
 ;                                    Script
@@ -74,41 +58,56 @@ PROCESS_OVERRIDES := Map(
 InstallKeybdHook()
 InstallMouseHook()
 
-windowList := Map()
-for _, program in PROCESS_LIST
-{
-    windowList[program] := Map()
-}
+global states := Map()
+states["ProcessList"] := Map()
+states["MonitoredWindows"] := Map()
+states["ManagedWindows"] := Map()
 
 ; Check if the script is running as admin and if keystrokes need to be blocked. If it does not have admin
 ; privileges the user is prompted to elevate it's permissions. Should they deny, the ability to block input
 ; is disabled and the script continues as normal.
-if (!A_IsAdmin)
+checkAdminPrivileges()
 {
-    requireAdmin := BLOCK_INPUT
-    for program, override in PROCESS_OVERRIDES
+    ; Admin already, do nothing
+    if (A_IsAdmin)
     {
-        if (override.Has("BLOCK_INPUT") && override["BLOCK_INPUT"])
+        return
+    }
+    isAdminRequire := config["IS_INPUT_BLOCK"]
+    for process, properties in config["PROCESS_OVERRIDES"]
+    {
+        if (properties.Has("IS_INPUT_BLOCK") && properties["IS_INPUT_BLOCK"])
         {
-            requireAdmin := True
+            isAdminRequire := true
         }
     }
-    if (requireAdmin)
+    ; Admin not required
+    if (!isAdminRequire)
     {
-        try
+        return
+    }
+    try
+    {
+        if (A_IsCompiled)
         {
-            if (A_IsCompiled)
-            {
-                RunWait '*RunAs "' A_ScriptFullPath '" /restart'
-            }
-            else
-            {
-                RunWait '*RunAs "' A_AhkPath '" /restart "' A_ScriptFullPath '"'
-            }
+            RunWait('*RunAs "' A_ScriptFullPath '" /restart')
         }
+        else
+        {
+            RunWait('*RunAs "' A_AhkPath '" /restart "' A_ScriptFullPath '"')
+        }
+    }
+    MsgBox("This requires Anti-AFK to be ran as administrator to block inputs!`nBLOCK_INPUT has been temporarily disabled.",
+        "Unable to block keystrokes",
+        "OK Icon!"
+    )
+}
 
-        MsgBox "This requires Anti-AFK to be run as Admin`nIt has been temporarily disabled", "Cannot Block Keystrokes",
-            "OK Icon!"
+createProcessList()
+{
+    for , process in config["PROCESSES"]
+    {
+        states["ProcessList"][process] := Map()
     }
 }
 
@@ -118,60 +117,74 @@ if (!A_IsAdmin)
 ; If another window is active, its handle is stored while the target is made transparent and activated.
 ; Any AFK timers are reset and the target is sent to the back before being made opaque again. Focus is then
 ; restored to the original window.
-resetTimer(windowID, resetAction, DenyInput)
+performWindowTask(windowId, taskAction, DenyInput)
 {
-    activeInfo := getWindowInfo("A")
-    targetInfo := getWindowInfo("ahk_id " windowID)
-
-    targetWindow := "ahk_id " targetInfo["ID"]
-
-    ; Activates the target window if there is no active window or the Desktop is focused.
-    ; Bringing the Desktop window to the front can cause some scaling issues, so we ignore it.
-    ; The Desktop's window has a class of "WorkerW" or "Progman".
-    if (!activeInfo.Count || (activeInfo["CLS"] = "WorkerW" || activeInfo["CLS"] = "Progman"))
+    try
     {
-        activateWindow targetWindow
+        activeInfo := getWindowInfo("A")
+        targetInfo := getWindowInfo("ahk_id " windowId)
+
+        targetWindow := "ahk_id " targetInfo["ID"]
+
+        ; Activates the target window if there is no active window or the Desktop is focused.
+        ; Bringing the Desktop window to the front can cause some scaling issues, so we ignore it.
+        ; The Desktop's window has a class of "WorkerW" or "Progman".
+        if (!activeInfo.Count || (activeInfo["CLS"] = "WorkerW" || activeInfo["CLS"] = "Progman"))
+        {
+            activateWindow(targetWindow)
+            return
+        }
+
+        ; Send input directly if the target window is already active.
+        if (WinActive(targetWindow))
+        {
+            taskAction()
+            return
+        }
+
+        blockUserInput("On")
+
+        WinSetTransparent(0, targetWindow)
+        activateWindow(targetWindow)
+
+        taskAction()
+
+        WinMoveBottom(targetWindow)
+        WinSetTransparent("Off", targetWindow)
+
+        oldActiveWindow := getWindow(
+            activeInfo["ID"],
+            activeInfo["PID"],
+            activeInfo["EXE"],
+            targetWindow
+        )
+
+        activateWindow(oldActiveWindow)
     }
-
-    ; Send input directly if the target window is already active.
-    if (WinActive(targetWindow))
+    catch as e
     {
-        resetAction
+        MsgBox("@performWindowTask: An error occured while performing task:`n" e "", , "OK Icon!")
+    }
+    finally
+    {
+        blockUserInput("Off")
+    }
+}
+
+blockUserInput(option)
+{
+    if (!config["IS_INPUT_BLOCK"] || !A_IsAdmin)
+    {
         return
     }
-
-    if (DenyInput && A_IsAdmin)
-    {
-        BlockInput "On"
-    }
-    WinSetTransparent 0, targetWindow
-    activateWindow targetWindow
-
-    resetAction
-
-    WinMoveBottom targetWindow
-    WinSetTransparent "Off", targetWindow
-
-    oldActiveWindow := getWindow(
-        activeInfo["ID"],
-        activeInfo["PID"],
-        activeInfo["EXE"],
-        targetWindow
-    )
-
-    activateWindow oldActiveWindow
-
-    if (DenyInput && A_IsAdmin)
-    {
-        BlockInput "Off"
-    }
+    BlockInput(option)
 }
 
 ; Fetch the window which best matches the given criteria.
 ; Some windows are ephemeral and will be closed after user input. In this case we try
 ; increasingly vague identifiers until we find a related window. If a window is still
 ; not found a fallback is used instead.
-getWindow(window_ID, process_ID, process_name, fallback)
+getWindow(window_ID, process_ID, process_name, fallbackWindow)
 {
     if (WinExist("ahk_id " window_ID))
     {
@@ -188,122 +201,119 @@ getWindow(window_ID, process_ID, process_name, fallback)
         return "ahk_exe " process_name
     }
 
-    return fallback
+    return fallbackWindow
 }
 
 ; Get information about a window so that it can be found and reactivated later.
-getWindowInfo(target)
+getWindowInfo(window)
 {
     windowInfo := Map()
 
-    if (!WinExist(target))
+    if (!WinExist(window))
     {
+        MsgBox("@getWindowInfo: Unable to retrieve window information. Window specified does not exist!`n" window "", , "OK Icon!")
         return windowInfo
     }
 
-    windowInfo["ID"] := WinGetID(target)
-    windowInfo["CLS"] := WinGetClass(target)
-    windowInfo["PID"] := WinGetPID(target)
-    windowInfo["EXE"] := WinGetProcessName(target)
+    windowInfo["ID"] := WinGetID(window)
+    windowInfo["CLS"] := WinGetClass(window)
+    windowInfo["PID"] := WinGetPID(window)
+    windowInfo["EXE"] := WinGetProcessName(window)
 
     return windowInfo
 }
 
 ; Activate a window and yield until it does so.
-activateWindow(target)
+activateWindow(window)
 {
-    if (!WinExist(target))
+    if (!WinExist(window))
     {
-        return False
+        return
     }
-
-    WinActivate target
-    WinWaitActive target
-
-    return True
+    WinActivate(window)
+    WinWaitActive(window)
 }
 
 ; Calculate the number of polls it will take for the time (in seconds) to pass.
-getLoops(value)
+getLoops(minutes)
 {
-    return Max(1, Round(value * 60 / POLL_INTERVAL))
+    return Max(1, Round(minutes * 60 / config["POLL_INTERVAL"]))
 }
 
 ; Find and return a specific attribute for a program, prioritising values in PROCESS_OVERRIDES.
 ; If an override has not been setup for that process, the default value for all programs will be used instead.
-getValue(value, program)
+getAttributeValue(attributeName, process)
 {
-    if (PROCESS_OVERRIDES.Has(program) && PROCESS_OVERRIDES[program].Has(value))
+    processOverrides := config["PROCESS_OVERRIDES"]
+    if (processOverrides.Has(process) && processOverrides[process].Has(attributeName))
     {
-        return PROCESS_OVERRIDES[program][value]
+        return processOverrides[process][attributeName]
     }
 
-    return %value%
+    return config[attributeName]
 }
 
 ; Create and return an updated copy of the old window list. A new list is made from scratch and
 ; populated with the current windows. Timings for these windows are then copied from the old list
 ; if they are present, otherwise the default timeout is assigned.
-updateWindowList(oldWindowList, processList)
+refreshWindowsTimers()
 {
-    newWindowList := Map()
-    for _, program in processList
+    for , process in config["PROCESSES"]
     {
-        newList := Map()
-        for _, handle in WinGetList("ahk_exe" program)
+        newWindow := Map()
+        for , windowId in WinGetList("ahk_exe" process)
         {
-            if (oldWindowList[program].Has(handle))
+            if (states["ProcessList"][process].Has(windowId))
             {
-                newList[handle] := oldWindowList[program][handle]
+                newWindow[windowId] := states["ProcessList"][process][windowId]
             }
             else
             {
-                newList[handle] := Map(
-                    "value", getLoops(getValue("WINDOW_TIMEOUT", program)),
-                    "type", "Timeout"
+                pollsLeft := getAttributeValue("WINDOW_TIMEOUT", process)
+                newWindow[windowId] := Map(
+                    "status", "Timeout",
+                    "pollsLeft", getLoops(pollsLeft)
                 )
             }
         }
 
-        newWindowList[program] := newList
+        states["ProcessList"][process] := newWindow
     }
-
-    return newWindowList
 }
 
 ; Dynamically update the System Tray icon and tooltip text, taking into consideration the number
 ; of windows that the script has found and the number of windows it is managing.
-updateSysTray(windowList)
+updateSystemTray()
 {
     ; Count how many windows are actively managed and how many
     ; are being monitored so we can guage the script's activity.
-    managed := Map()
-    monitor := Map()
-    for program, windows in windowList
+    managed := states["ManagedWindows"]
+    monitor := states["MonitoredWindows"]
+    for process, windows in states["ProcessList"]
     {
-        managed[program] := 0
-        monitor[program] := 0
+        managed[process] := 0
+        monitor[process] := 0
 
-        for _, waitInfo in windows
+        for , window in windows
         {
-            if (waitInfo["type"] = "Timeout")
+            if (window["status"] = "Timeout")
             {
-                monitor[program] += 1
+                monitor[process] += 1
             }
-            else if (waitInfo["type"] = "Interval")
+            else if (window["status"] = "RunningTask")
             {
-                managed[program] += 1
+                managed[process] += 1
             }
         }
 
-        if (managed[program] = 0)
+        if (managed[process] = 0)
         {
-            managed.Delete program
+            managed.Delete(process)
         }
 
-        if (monitor[program] = 0)
+        if (monitor[process] = 0)
         {
-            monitor.Delete program
+            monitor.Delete(process)
         }
     }
 
@@ -312,20 +322,20 @@ updateSysTray(windowList)
     ; that are being managed.
     if (managed.Count > 0)
     {
-        TraySetIcon A_AhkPath, 2
+        TraySetIcon(A_AhkPath, 2)
 
         if (monitor.Count > 0)
         {
             newTip := "Managing:`n"
-            for program, windows in managed
+            for process, windows in managed
             {
-                newTip := newTip program " - " windows "`n"
+                newTip := newTip process " - " windows "`n"
             }
             newTip := newTip "`nMonitoring:`n"
 
-            for program, windows in monitor
+            for process, windows in monitor
             {
-                newTip := newTip program " - " windows "`n"
+                newTip := newTip process " - " windows "`n"
             }
             newTip := RTrim(newTip, "`n")
             A_IconTip := newTip
@@ -333,9 +343,9 @@ updateSysTray(windowList)
         else
         {
             newTip := "Managing:`n"
-            for program, windows in managed
+            for process, windows in managed
             {
-                newTip := newTip program " - " windows "`n"
+                newTip := newTip process " - " windows "`n"
             }
 
             newTip := RTrim(newTip, "`n")
@@ -350,12 +360,12 @@ updateSysTray(windowList)
     ; of windows that we are watching.
     if (monitor.Count > 0)
     {
-        TraySetIcon A_AhkPath, 3
+        TraySetIcon(A_AhkPath, 3)
 
         newTip := "Monitoring:`n"
-        for program, windows in monitor
+        for process, windows in monitor
         {
-            newTip := newTip program " - " windows "`n"
+            newTip := newTip process " - " windows "`n"
         }
         newTip := RTrim(newTip, "`n")
         A_IconTip := newTip
@@ -366,75 +376,60 @@ updateSysTray(windowList)
     ; If we get to this point the script is not managing or watching any windows.
     ; Essensially the script isn't doing anything and we make sure the icon conveys
     ; this if it hasn't already.
-    TraySetIcon A_AhkPath, 5
+    TraySetIcon(A_AhkPath, 5)
     A_IconTip := "No windows found"
 }
 
-; Go through each window in the list and decrement it's timer.
-; If the timer reaches zero the TASK function is ran and the timer is set back to it's starting value.
-tickWindowList(windowList)
+tickWindowsTimers()
 {
-    for program, windows in windowList
+    for process, windows in states["ProcessList"]
     {
-        for handle, timeLeft in windows
-        {
-            if (WinActive("ahk_id" handle))
-            {
-                ; If the program is active and has not timed out, we set it's timeout back to
-                ; the limit. The user will need to interact with it to send it to the back and
-                ; we use A_TimeIdlePhysical rather then our own timeout if it's in the foreground.
-                if (A_TimeIdlePhysical < getValue("WINDOW_TIMEOUT", program) * 60000)
-                {
-                    timeLeft := Map(
-                        "type", "Timeout",
-                        "value", getLoops(getValue("WINDOW_TIMEOUT", program)))
+        windowTimeoutMs := getAttributeValue("WINDOW_TIMEOUT", process) * 60000
+        taskInterval := getAttributeValue("TASK_INTERVAL", process)
+        taskAction := getAttributeValue("TASK", process)
+        isInputBlock := getAttributeValue("IS_INPUT_BLOCK", process)
 
-                    windowList[program][handle] := timeLeft
+        for windowId, window in windows
+        {
+            if (WinActive("ahk_id" windowId))
+            {
+                if (A_TimeIdlePhysical < windowTimeoutMs)
+                {
+                    window := Map(
+                        "status", "Timeout",
+                        "pollsLeft", getLoops(windowTimeoutMs / 60000))
+                    states["ProcessList"][process][windowId] := window
                     continue
                 }
 
-                ; If the program has timed out we need to update the WindowList to reflect that.
-                ; We can achieve this by setting the time left to one. It will be decremented immediately
-                ; afterwards and the script will activate as it sees the time left has reached zero.
-                if (timeLeft["type"] = "Timeout")
+                if (window["status"] = "Timeout")
                 {
-                    timeLeft["value"] = 1
+                    window["pollsLeft"] = 1
                 }
             }
-
-            ; Decrement the time left, if it reaches zero reset the AFK timer. Then reset the time
-            ; left and repeat.
-            timeLeft["value"] -= 1
-
-            if (timeLeft["value"] = 0)
+            window["pollsLeft"] -= 1
+            if (window["pollsLeft"] <= 0)
             {
-                timeLeft := Map(
-                    "type", "Interval",
-                    "value", getLoops(getValue("TASK_INTERVAL", program)))
+                window := Map(
+                    "status", "RunningTask",
+                    "pollsLeft", getLoops(taskInterval)
+                )
 
-                resetTimer handle, getValue("TASK", program), getValue("BLOCK_INPUT", program)
+                performWindowTask(windowId, taskAction, isInputBlock)
             }
 
-            windowList[program][handle] := timeLeft
+            states["ProcessList"][process][windowId] := window
         }
     }
-
-    return windowList
 }
 
 updateScript()
 {
-    global windowList
-    global BLOCK_INPUT
-    global PROCESS_LIST
-    global PROCESS_OVERRIDES
-
-    windowList := updateWindowList(windowList, PROCESS_LIST)
-    windowList := tickWindowList(windowList)
-
-    updateSysTray windowList
+    refreshWindowsTimers()
+    tickWindowsTimers()
+    updateSystemTray()
 }
-
-; Start Anti-AFK
-updateScript
-SetTimer updateScript, POLL_INTERVAL * 1000
+checkAdminPrivileges()
+createProcessList()
+updateScript()
+SetTimer(updateScript, config["POLL_INTERVAL"] * 1000)
