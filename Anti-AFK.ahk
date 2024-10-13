@@ -16,7 +16,8 @@ config["WINDOW_TIMEOUT"] := 1
 config["TASK"] := () => (
     Send("{Space Down}")
     Sleep(1)
-    Send("{Space Up}"))
+    Send("{Space Up}")
+)
 
 ; TASK_INTERVAL (Minutes):
 ;   This is the amount of time the script will wait after calling the TASK function
@@ -35,7 +36,8 @@ config["IS_INPUT_BLOCK"] := false
 ;   not belong to any of these processes will be ignored.
 config["PROCESSES"] := [
     "RobloxPlayerBeta.exe",
-    "notepad.exe"]
+    "notepad.exe"
+]
 
 ; PROCESS_OVERRIDES (Associative Array):
 ;   This allows you to specify specific values of WINDOW_TIMEOUT, TASK_INTERVAL,
@@ -48,7 +50,10 @@ config["PROCESS_OVERRIDES"] := Map(
         "TASK_INTERVAL", 5,
         "IS_INPUT_BLOCK", false,
         "TASK", () => (
-            Send("w"))))
+            Send("w")
+        )
+    )
+)
 
 ; ------------------------------------------------------------------------------
 ;                                    Script
