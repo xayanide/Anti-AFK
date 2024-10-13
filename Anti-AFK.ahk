@@ -14,9 +14,10 @@ config["WINDOW_TIMEOUT"] := 1
 ;   AFK timers. The target window will have focus while it is being executed.
 ;   You can customise this function freely - just make sure it resets the timer.
 config["TASK"] := () => (
-    Send("{Space Down}")
-    Sleep(1)
-    Send("{Space Up}")
+    ; Send("{Space Down}")
+    ; Sleep(1)
+    ; Send("{Space Up}")
+    Send("1")
 )
 
 ; TASK_INTERVAL (Minutes):
@@ -36,7 +37,8 @@ config["IS_INPUT_BLOCK"] := false
 ;   not belong to any of these processes will be ignored.
 config["PROCESSES"] := [
     "RobloxPlayerBeta.exe",
-    "notepad.exe"
+    "notepad.exe",
+    "wordpad.exe"
 ]
 
 ; PROCESS_OVERRIDES (Associative Array):
@@ -46,11 +48,11 @@ config["PROCESSES"] := [
 ;   reset the AFK timer does not work as well across different applications.
 config["PROCESS_OVERRIDES"] := Map(
     "wordpad.exe", Map(
-        "WINDOW_TIMEOUT", 5,
-        "TASK_INTERVAL", 5,
+        "WINDOW_TIMEOUT", 1,
+        "TASK_INTERVAL", 1,
         "IS_INPUT_BLOCK", false,
         "TASK", () => (
-            Send("w")
+            Send("1")
         )
     )
 )
@@ -62,6 +64,7 @@ config["PROCESS_OVERRIDES"] := Map(
 #SingleInstance
 InstallKeybdHook()
 InstallMouseHook()
+KeyHistory(0)
 
 global states := Map()
 states["ProcessList"] := Map()
@@ -71,7 +74,7 @@ states["ManagedWindows"] := Map()
 ; Check if the script is running as admin and if keystrokes need to be blocked. If it does not have admin
 ; privileges the user is prompted to elevate it's permissions. Should they deny, the ability to block input
 ; is disabled and the script continues as normal.
-checkAdminPrivileges()
+requestElevation()
 {
     ; Admin already, do nothing
     if (A_IsAdmin)
@@ -79,9 +82,9 @@ checkAdminPrivileges()
         return
     }
     isAdminRequire := config["IS_INPUT_BLOCK"]
-    for process, properties in config["PROCESS_OVERRIDES"]
+    for process, attributes in config["PROCESS_OVERRIDES"]
     {
-        if (properties.Has("IS_INPUT_BLOCK") && properties["IS_INPUT_BLOCK"])
+        if (attributes.Has("IS_INPUT_BLOCK") && attributes["IS_INPUT_BLOCK"])
         {
             isAdminRequire := true
         }
@@ -128,16 +131,15 @@ performWindowTask(windowId, taskAction, DenyInput)
     {
         activeInfo := getWindowInfo("A")
         targetInfo := getWindowInfo("ahk_id " windowId)
-
         targetWindow := "ahk_id " targetInfo["ID"]
 
         ; Activates the target window if there is no active window or the Desktop is focused.
         ; Bringing the Desktop window to the front can cause some scaling issues, so we ignore it.
-        ; The Desktop's window has a class of "WorkerW" or "Progman".
-        if (!activeInfo.Count || (activeInfo["CLS"] = "WorkerW" || activeInfo["CLS"] = "Progman"))
+        ; The Desktop's window has a class of "WorkerW" or "Progman"
+        ; Handles no window / explorer.exe / Desktop / 
+        if (!activeInfo.Count || (activeInfo["CLS"] = "WorkerW" || activeInfo["CLS"] = "Progman" || activeInfo["EXE"] = "ShellExperienceHost.exe" || activeInfo["EXE"] = "SearchApp.exe"))
         {
             activateWindow(targetWindow)
-            return
         }
 
         ; Send input directly if the target window is already active.
@@ -216,7 +218,6 @@ getWindowInfo(window)
 
     if (!WinExist(window))
     {
-        MsgBox("@getWindowInfo: Unable to retrieve window information. Window specified does not exist!`n" window "", , "OK Icon!")
         return windowInfo
     }
 
@@ -236,7 +237,6 @@ activateWindow(window)
         return
     }
     WinActivate(window)
-    WinWaitActive(window)
 }
 
 ; Calculate the number of polls it will take for the time (in seconds) to pass.
@@ -256,34 +256,6 @@ getAttributeValue(attributeName, process)
     }
 
     return config[attributeName]
-}
-
-; Create and return an updated copy of the old window list. A new list is made from scratch and
-; populated with the current windows. Timings for these windows are then copied from the old list
-; if they are present, otherwise the default timeout is assigned.
-refreshWindowsTimers()
-{
-    for , process in config["PROCESSES"]
-    {
-        newWindow := Map()
-        for , windowId in WinGetList("ahk_exe" process)
-        {
-            if (states["ProcessList"][process].Has(windowId))
-            {
-                newWindow[windowId] := states["ProcessList"][process][windowId]
-            }
-            else
-            {
-                pollsLeft := getAttributeValue("WINDOW_TIMEOUT", process)
-                newWindow[windowId] := Map(
-                    "status", "Timeout",
-                    "pollsLeft", getLoops(pollsLeft)
-                )
-            }
-        }
-
-        states["ProcessList"][process] := newWindow
-    }
 }
 
 ; Dynamically update the System Tray icon and tooltip text, taking into consideration the number
@@ -385,6 +357,27 @@ updateSystemTray()
     A_IconTip := "No windows found"
 }
 
+; Create and return an updated copy of the old window list. A new list is made from scratch and
+; populated with the current windows. Timings for these windows are then copied from the old list
+; if they are present, otherwise the default timeout is assigned.
+refreshWindowsTimers()
+{
+    for , process in config["PROCESSES"]
+    {
+        for , windowId in WinGetList("ahk_exe" process)
+        {
+            if (!states["ProcessList"][process].Has(windowId))
+            {
+                pollsLeft := getAttributeValue("WINDOW_TIMEOUT", process)
+                states["ProcessList"][process][windowId] := Map(
+                    "status", "Timeout",
+                    "pollsLeft", getLoops(pollsLeft)
+                )
+            }
+        }
+    }
+}
+
 tickWindowsTimers()
 {
     for process, windows in states["ProcessList"]
@@ -428,13 +421,13 @@ tickWindowsTimers()
     }
 }
 
-updateScript()
+poll()
 {
     refreshWindowsTimers()
     tickWindowsTimers()
     updateSystemTray()
 }
-checkAdminPrivileges()
+requestElevation()
 createProcessList()
-updateScript()
-SetTimer(updateScript, config["POLL_INTERVAL"] * 1000)
+poll()
+SetTimer(poll, config["POLL_INTERVAL"] * 1000)
