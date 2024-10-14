@@ -125,7 +125,6 @@ createProcessList()
 
 performWindowTask(windowId, invokeTask, isInputBlock)
 {
-    OutputDebug("" A_Now " @performWindowTask: Started")
     activeWindow := "A"
     activeInfo := retrieveWindowInfo(activeWindow)
     targetInfo := retrieveWindowInfo("ahk_id " windowId)
@@ -136,36 +135,45 @@ performWindowTask(windowId, invokeTask, isInputBlock)
         activeInfo["EXE"],
         targetWindow
     )
+    isTargetActivateSuccess := false
     try
     {
         OutputDebug("" A_Now " Active Window INFO : [CLS:" activeInfo["CLS"] "] [ID:" activeInfo["ID"] "] [PID:" activeInfo["PID"] "] [EXE:" activeInfo["EXE"] "] [Window:" oldActiveWindow "]")
         OutputDebug("" A_Now " Target Window INFO : [CLS:" targetInfo["CLS"] "] [ID:" targetInfo["ID"] "] [PID:" targetInfo["PID"] "] [EXE:" targetInfo["EXE"] "] [Window:" targetWindow "]")
 
-        ; Activates the target window if there is no active window or the Desktop is focused.
-        ; Bringing the Desktop window to the front can cause some scaling issues, so we ignore it.
-        ; The Desktop's window has a class of "WorkerW" or "Progman"
-        ; Handles no window / explorer.exe / Desktop /
+
+        ; For CoreWindows, if these are the active windows. No other windows can be activated, the taskbar icons will flash.
+        ; Not even #WinActivateForce directive can mitigate this issue, still finding a solution for this.
+        ; Issues:
+        ; For example like notepad.exe, if you open another Window within the same process notepad.exe. The script prior to my changes is struggling to handle it. WinWaitActive gets stuck.
+        ; There are tooltips when you hover over Category buttons in wordpad.exe, those are also read as windows and gets added as windows to the process windows list, they are retained there indefinitely which means they're unhandled once they're gone.
+        ; Certain windows that appear within the same process like notepad.exe's Saving window, the script is also unable to activate the main window properly.
+        ; The change I implemented was only creating 1 window map for a process, if there are more windows for a certain process, ignore it, it's only a temporary workaround.
+        ; There are also optimizations I implemented, like early continue and return clauses, and decluttering of variables and edge cases
         if (activeInfo["CLS"] = "Windows.UI.Core.CoreWindow")
         {
             OutputDebug("" A_Now " Active Window [" oldActiveWindow "] is Windows.UI.Core.CoreWindow!")
         }
+        ; Activates the target window if there is no active window or the Desktop is focused.
+        ; Bringing the Desktop window to the front can cause some scaling issues, so we ignore it.
+        ; The Desktop's window has a class of "WorkerW" or "Progman"
         if (!activeInfo.Count || (activeInfo["CLS"] = "WorkerW" || activeInfo["CLS"] = "Progman"))
         {
             OutputDebug("" A_Now " Active Window [" oldActiveWindow "] is Desktop! Force activating target window...")
             activateWindow(targetWindow)
         }
-        ; Perform action directly if the target window is already active.
+        ; Perform the task directly if the target window is already active.
         if (WinActive(targetWindow))
         {
             invokeTask()
-            OutputDebug("" A_Now " Active Target Window [" targetWindow "] successfully performed its task!")
+            OutputDebug("" A_Now " Active Target Window [" targetWindow "] Successfully performed its task!")
             return
         }
         blockUserInput("On", isInputBlock)
         OutputDebug("" A_Now " Inactive Target Window [" targetWindow "] Setting transparency as 0...")
         WinSetTransparent(0, targetWindow)
-        isActivateSuccess := activateWindow(targetWindow)
-        if (WinActive(oldActiveWindow) || !isActivateSuccess)
+        isTargetActivateSuccess := activateWindow(targetWindow)
+        if (WinActive(oldActiveWindow) || !isTargetActivateSuccess)
         {
             OutputDebug("" A_Now " Inactive Target Window [" targetWindow "] failed to perform its task as user is still on old window or the window failed to activate!")
             WinMoveBottom(targetWindow)
@@ -173,15 +181,19 @@ performWindowTask(windowId, invokeTask, isInputBlock)
             return
         }
         invokeTask()
-        OutputDebug("" A_Now " Inactive Target Window [" targetWindow "] successfully performed its task!")
+        OutputDebug("" A_Now " Inactive Target Window [" targetWindow "] Successfully performed its task!")
+        ; There is a condition in the try clause above that checks if the target window is active already. If I move this in the finally clause,
+        ; it will bring the active target window to the bottom which isn't the intended behavior
         WinMoveBottom(targetWindow)
     }
     catch as e
     {
-        MsgBox("@performWindowTask: Encountered error:`n" e.Message "", , "OK Icon!")
+        MsgBox("@performWindowTask: Encountered error:`n" e.Message "`n" e.Stack "", , "OK Icon!")
     }
     finally
     {
+        ; These serve as fail saves. I don't want to put them in the try clause because if something goes wrong and gets stuck, the windows should operate fine at the end
+        ; and not get caught in the hang
         if (WinGetTransparent(targetWindow) = 0)
         {
             OutputDebug("" A_Now " Inactive Target Window [" targetWindow "] Setting transparency as Off...")
@@ -193,7 +205,7 @@ performWindowTask(windowId, invokeTask, isInputBlock)
             activateWindow(oldActiveWindow)
         }
         blockUserInput("Off", isInputBlock)
-        OutputDebug("" A_Now " @performWindowTask: Finished its operations")
+        OutputDebug("" A_Now " @performWindowTask: Finished its operations for Window [" targetWindow "]")
     }
 }
 
@@ -258,7 +270,7 @@ activateWindow(window)
         return false
     }
     WinActivate(window)
-    value := WinWaitActive(window, , 0.25)
+    value := WinWaitActive(window, , 0.1)
     if (value = 0)
     {
         OutputDebug("" A_Now " Window [" window "] failed to activate!")
@@ -378,14 +390,23 @@ generateWindowTimers()
 {
     for , process in config["PROCESSES"]
     {
-        pollsLeft := retrieveRemainingPolls(getAttributeValue("WINDOW_TIMEOUT", process))
-        for , windowId in WinGetList("ahk_exe" process)
+        windowIds := WinGetList("ahk_exe" process)
+        if (!windowIds)
         {
-            ; Process doesn't have a window task timer yet
+            continue
+        }
+        pollsLeft := retrieveRemainingPolls(getAttributeValue("WINDOW_TIMEOUT", process))
+        for , windowId in windowIds
+        {
+            ; Process specified doesn't have a window task timer yet
             if (!states["ProcessList"][process].Has(windowId))
             {
-                OutputDebug("" A_Now " Creating window task timer for process " process " [Window ID: " windowId "]...")
+                if (states["ProcessList"][process].Count >= 1)
+                {
+                    continue
+                }
                 ; Create a map for this process' window task timer
+                OutputDebug("" A_Now " Created window for " process " [Window ID: " windowId "]")
                 states["ProcessList"][process][windowId] := Map(
                     "status", "MonitoringStatus",
                     "pollsLeft", pollsLeft
@@ -404,12 +425,11 @@ checkWindowTaskTimers()
         managingPollsLeft := retrieveRemainingPolls(getAttributeValue("TASK_INTERVAL", process))
         taskAction := getAttributeValue("TASK", process)
         isInputBlock := getAttributeValue("IS_INPUT_BLOCK", process)
-
         for windowId, window in windows
         {
             if (!WinExist("ahk_id" windowId))
             {
-                OutputDebug("" A_Now " Process " process " Window doesn't exist anymore! (Deleted Window Task Timer) [Window ID: " windowId "]")
+                OutputDebug("" A_Now " Window for process " process " does not exist! (Deleted Window Task Timer) [Window ID: " windowId "]")
                 states["ProcessList"][process].Delete(windowId)
                 continue
             }
