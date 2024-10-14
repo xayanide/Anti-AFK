@@ -314,27 +314,27 @@ updateSystemTray()
     for process_name, in processes
     {
         windows := processes.Get(process_name).Get("windows")
-        monitoredProcess := monitoredWindows.Set(process_name, 0).Get(process_name)
-        managedProcess := managedWindows.Set(process_name, 0).Get(process_name)
+        monitoredCount := monitoredWindows.Set(process_name, 0).Get(process_name)
+        managedCount := managedWindows.Set(process_name, 0).Get(process_name)
         for , window in windows
         {
             windowStatus := window.Get("status")
             if (windowStatus = "MonitoringStatus")
             {
-                monitoredProcess += 1
+                monitoredCount += 1
             }
             else if (windowStatus = "ManagingStatus")
             {
-                managedProcess += 1
+                managedCount += 1
             }
         }
 
-        if (monitoredProcess = 0)
+        if (monitoredCount = 0)
         {
             monitoredWindows.Delete(process_name)
         }
 
-        if (managedProcess = 0)
+        if (managedCount = 0)
         {
             managedWindows.Delete(process_name)
         }
