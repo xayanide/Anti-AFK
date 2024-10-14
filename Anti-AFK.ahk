@@ -456,7 +456,7 @@ checkWindowTaskTimers()
             {
                 if (A_TimeIdlePhysical < (windowTimeoutMinutes * 60000))
                 {
-                    OutputDebug("[" A_Now "] [Window ID: " windowId "] Active Target Window: Activity detected!")
+                    OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: Activity detected!")
                     window := Map(
                         "status", "MonitoringStatus",
                         "pollsLeft", monitorPollsLeft
@@ -464,14 +464,14 @@ checkWindowTaskTimers()
                     windows.Set(windowId, window)
                     continue
                 }
-                OutputDebug("[" A_Now "] [Window ID: " windowId "] Active Target Window: Inactivity detected!")
+                OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: Inactivity detected!")
                 if (window["status"] = "MonitoringStatus")
                 {
                     window["pollsLeft"] = 1
                 }
             }
             window["pollsLeft"] -= 1
-            OutputDebug("[" A_Now "] [Window ID: " windowId "] Inactive Target Window: " window["pollsLeft"] " polls remaining ")
+            OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Inactive Target Window: " window["pollsLeft"] " polls remaining ")
             if (window["pollsLeft"] <= 0)
             {
                 window := Map(
