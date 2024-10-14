@@ -135,7 +135,7 @@ performWindowTask(windowId, invokeTask, isInputBlock)
     activeInfo := retrieveWindowInfo(activeWindow)
     targetInfo := retrieveWindowInfo("ahk_id " windowId)
     targetWindow := "ahk_id " targetInfo["ID"]
-    OutputDebug("" A_Now " @performWindowTask: Starting task for window [" targetWindow "] ")
+    OutputDebug("[" A_Now "] [" targetWindow "] @performWindowTask: Starting task ")
     oldActiveWindow := getWindow(
         activeInfo["ID"],
         activeInfo["PID"],
@@ -145,8 +145,8 @@ performWindowTask(windowId, invokeTask, isInputBlock)
     isTargetActivateSuccess := false
     try
     {
-        OutputDebug("" A_Now " Active Window INFO : [CLS:" activeInfo["CLS"] "] [ID:" activeInfo["ID"] "] [PID:" activeInfo["PID"] "] [EXE:" activeInfo["EXE"] "] [Window:" oldActiveWindow "]")
-        OutputDebug("" A_Now " Target Window INFO : [CLS:" targetInfo["CLS"] "] [ID:" targetInfo["ID"] "] [PID:" targetInfo["PID"] "] [EXE:" targetInfo["EXE"] "] [Window:" targetWindow "]")
+        OutputDebug("[" A_Now "] Active Window INFO : [CLS:" activeInfo["CLS"] "] [ID:" activeInfo["ID"] "] [PID:" activeInfo["PID"] "] [EXE:" activeInfo["EXE"] "] [Window:" oldActiveWindow "]")
+        OutputDebug("[" A_Now "] Target Window INFO : [CLS:" targetInfo["CLS"] "] [ID:" targetInfo["ID"] "] [PID:" targetInfo["PID"] "] [EXE:" targetInfo["EXE"] "] [Window:" targetWindow "]")
 
         ; Issues:
         ; When the user quickly switches between specified process' windows, the script might still poll and decrements one of their timer. The supposed behavior is to reset the polls
@@ -160,36 +160,36 @@ performWindowTask(windowId, invokeTask, isInputBlock)
         ; There are also optimizations I implemented, like early continue and return clauses, and decluttering of variables and edge cases
         if (activeInfo["CLS"] = "Windows.UI.Core.CoreWindow")
         {
-            OutputDebug("" A_Now " Active Window [" oldActiveWindow "] is Windows.UI.Core.CoreWindow!")
+            OutputDebug("[" A_Now "] [" oldActiveWindow "] Active Window is Windows.UI.Core.CoreWindow!")
         }
         ; Activates the target window if there is no active window or the Desktop is focused.
         ; Bringing the Desktop window to the front can cause some scaling issues, so we ignore it.
         ; The Desktop's window has a class of "WorkerW" or "Progman"
         if (!activeInfo.Count || (activeInfo["CLS"] = "WorkerW" || activeInfo["CLS"] = "Progman"))
         {
-            OutputDebug("" A_Now " Active Window [" oldActiveWindow "] is Desktop! Force activating target window...")
+            OutputDebug("[" A_Now "] [" oldActiveWindow "] Active Window is Desktop! Force activating target window...")
             activateWindow(targetWindow)
         }
         ; Perform the task directly if the target window is already active.
         if (WinActive(targetWindow))
         {
             invokeTask()
-            OutputDebug("" A_Now " Active Target Window [" targetWindow "] Successfully performed its task!")
+            OutputDebug("[" A_Now "] [" targetWindow "] Active Target Window successfully performed its task!")
             return
         }
         blockUserInput("On", isInputBlock)
-        OutputDebug("" A_Now " Inactive Target Window [" targetWindow "] Setting transparency as 0...")
+        OutputDebug("[" A_Now "] [" targetWindow "] Inactive Target Window setting transparency to 0...")
         WinSetTransparent(0, targetWindow)
         isTargetActivateSuccess := activateWindow(targetWindow)
         if (WinActive(oldActiveWindow) || !isTargetActivateSuccess)
         {
-            OutputDebug("" A_Now " Inactive Target Window [" targetWindow "] failed to perform its task as user is still on old window or the window failed to activate!")
+            OutputDebug("[" A_Now "] [" targetWindow "] Inactive Target Window failed to perform its task as user is still on old window or the window failed to activate!")
             WinMoveBottom(targetWindow)
             WinSetTransparent("Off", targetWindow)
             return
         }
         invokeTask()
-        OutputDebug("" A_Now " Inactive Target Window [" targetWindow "] Successfully performed its task!")
+        OutputDebug("[" A_Now "] [" targetWindow "] Inactive Target Window successfully performed its task!")
         ; There is a condition in the try clause above that checks if the target window is active already. If I move this in the finally clause,
         ; it will bring the active target window to the bottom which isn't the intended behavior
         WinMoveBottom(targetWindow)
@@ -204,7 +204,7 @@ performWindowTask(windowId, invokeTask, isInputBlock)
         ; and not get caught in the hang
         if (WinGetTransparent(targetWindow) = 0)
         {
-            OutputDebug("" A_Now " Inactive Target Window [" targetWindow "] Setting transparency as Off...")
+            OutputDebug("[" A_Now "] [" targetWindow "] Inactive Target Window setting transparency to Off...")
             WinSetTransparent("Off", targetWindow)
         }
         if (!WinActive(oldActiveWindow))
@@ -212,7 +212,7 @@ performWindowTask(windowId, invokeTask, isInputBlock)
             activateWindow(oldActiveWindow)
         }
         blockUserInput("Off", isInputBlock)
-        OutputDebug("" A_Now " @performWindowTask: Finished task for window [" targetWindow "] ")
+        OutputDebug("[" A_Now "] [" targetWindow "] @performWindowTask: Finished task")
     }
 }
 
@@ -222,7 +222,7 @@ blockUserInput(option, isInputBlock)
     {
         return
     }
-    OutputDebug("" A_Now " Successfully BlockInput " option "")
+    OutputDebug("[" A_Now "] @blockUserInput: Successfully BlockInput " option "")
     BlockInput(option)
 }
 
@@ -256,7 +256,7 @@ retrieveWindowInfo(window)
 
     if (!WinExist(window))
     {
-        OutputDebug("" A_Now " Window [" window "] does not exist! Failed to retrieve its info!")
+        OutputDebug("[" A_Now "] [" window "] Window does not exist! Failed to retrieve info!")
         return windowInfo
     }
     windowInfo := Map(
@@ -273,17 +273,17 @@ activateWindow(window)
 {
     if (!WinExist(window))
     {
-        OutputDebug("" A_Now " Window [" window "] does not exist! Unable to activate!")
+        OutputDebug("[" A_Now "] [" window "] Window does not exist! Failed to activate!")
         return false
     }
     WinActivate(window)
     value := WinWaitActive(window, , 0.1)
     if (value = 0)
     {
-        OutputDebug("" A_Now " Window [" window "] failed to activate!")
+        OutputDebug("[" A_Now "] [" window "] Window timed out! Failed to activate!")
         return false
     }
-    OutputDebug("" A_Now " Window [" window "] activated!")
+    OutputDebug("[" A_Now "] [" window "] Window successfully activated!")
     return true
 }
 
@@ -423,7 +423,7 @@ generateWindowTimers()
                         "pollsLeft", pollsLeft
                     )
                 )
-                OutputDebug("" A_Now " Created window for " process_name " [Window ID: " windowId "]")
+                OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Created window for process")
             }
         }
     }
@@ -448,7 +448,7 @@ checkWindowTaskTimers()
         {
             if (!WinExist("ahk_id" windowId))
             {
-                OutputDebug("" A_Now " Window for process " process_name " does not exist! (Deleted Window Task Timer) [Window ID: " windowId "]")
+                OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Deleted window for process as window no longer exists!")
                 windows.Delete(windowId)
                 continue
             }
@@ -456,7 +456,7 @@ checkWindowTaskTimers()
             {
                 if (A_TimeIdlePhysical < (windowTimeoutMinutes * 60000))
                 {
-                    OutputDebug("" A_Now " Active Target Window: Activity detected! [Window ID: " windowId "]")
+                    OutputDebug("[" A_Now "] [Window ID: " windowId "] Active Target Window: Activity detected!")
                     window := Map(
                         "status", "MonitoringStatus",
                         "pollsLeft", monitorPollsLeft
@@ -464,14 +464,14 @@ checkWindowTaskTimers()
                     windows.Set(windowId, window)
                     continue
                 }
-                OutputDebug("" A_Now " Active Target Window: Inactivity detected! [Window ID: " windowId "]")
+                OutputDebug("[" A_Now "] [Window ID: " windowId "] Active Target Window: Inactivity detected!")
                 if (window["status"] = "MonitoringStatus")
                 {
                     window["pollsLeft"] = 1
                 }
             }
             window["pollsLeft"] -= 1
-            OutputDebug("" A_Now " Inactive Target Window: " window["pollsLeft"] " polls remaining " "[Window ID: " windowId "]")
+            OutputDebug("[" A_Now "] [Window ID: " windowId "] Inactive Target Window: " window["pollsLeft"] " polls remaining ")
             if (window["pollsLeft"] <= 0)
             {
                 window := Map(
