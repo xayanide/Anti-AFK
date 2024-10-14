@@ -53,11 +53,13 @@ config["PROCESSES"] := [
 ;   reset the AFK timer does not work as well across different applications.
 config["PROCESS_OVERRIDES"] := Map(
     "wordpad.exe", Map(
-        "WINDOW_TIMEOUT", 0.18,
-        "TASK_INTERVAL", 0.18,
-        "IS_INPUT_BLOCK", false,
-        "TASK", () => (
-            Send("1")
+        "overrides", Map(
+            "WINDOW_TIMEOUT", 0.18,
+            "TASK_INTERVAL", 0.18,
+            "IS_INPUT_BLOCK", false,
+            "TASK", () => (
+                Send("1")
+            )
         )
     )
 )
@@ -73,10 +75,11 @@ InstallKeybdHook()
 InstallMouseHook()
 KeyHistory(0)
 
-global states := Map()
-states["ProcessList"] := Map()
-states["MonitoredWindows"] := Map()
-states["ManagedWindows"] := Map()
+global states := Map(
+    "Processes", Map(),
+    "MonitoredWindows", Map(),
+    "ManagedWindows", Map()
+)
 
 requestElevation()
 {
@@ -85,10 +88,11 @@ requestElevation()
     {
         return
     }
-    isAdminRequire := config["IS_INPUT_BLOCK"]
-    for process, attributes in config["PROCESS_OVERRIDES"]
+    isAdminRequire := config.Get("IS_INPUT_BLOCK")
+    for , process in config.Get("PROCESS_OVERRIDES")
     {
-        if (attributes.Has("IS_INPUT_BLOCK") && attributes["IS_INPUT_BLOCK"])
+        overrides := process.Get("overrides")
+        if (overrides.Has("IS_INPUT_BLOCK") && overrides["IS_INPUT_BLOCK"])
         {
             isAdminRequire := true
         }
@@ -115,11 +119,12 @@ requestElevation()
     )
 }
 
-createProcessList()
+createProcesses()
 {
-    for , process in config["PROCESSES"]
+    for , process_name in config.get("PROCESSES")
     {
-        states["ProcessList"][process] := Map()
+        process := states.Get("Processes").Set(process_name, Map()).Get(process_name)
+        process.Set("windows", Map())
     }
 }
 
@@ -146,7 +151,7 @@ performWindowTask(windowId, invokeTask, isInputBlock)
         ; For CoreWindows, if these are the active windows. No other windows can be activated, the taskbar icons will flash.
         ; Not even #WinActivateForce directive can mitigate this issue, still finding a solution for this, i.e, Open the clock in Windows 10, SearchApp.exe or Notifications then wait for the window timers to perform their task.
         ; Another different issue similar to this for example like notepad.exe, if you open another Window within the same process notepad.exe. The script prior to my changes is struggling to handle it. WinWaitActive gets stuck.
-        ; There are tooltips when you hover over Category buttons in wordpad.exe, those are also read as windows and get added as windows to the process windows list, 
+        ; There are tooltips when you hover over Category buttons in wordpad.exe, those are also read as windows and get added as windows to the process windows list,
         ; they are retained there indefinitely (those created window maps) which means they're unhandled once the process' window is closed by the user, those should be cleaned up dynamically.
         ; Certain windows that appear within the same process like notepad.exe's "Save as" "Save" windows, once those are the active windows, the script is also unable to activate the main window properly.
         ; The change I implemented was only creating 1 window map for a process, if there are more windows for a certain process, it doesn't create any more maps for them, it's only a temporary workaround.
@@ -240,7 +245,6 @@ getWindow(window_ID, process_ID, process_name, fallbackWindow)
     {
         return "ahk_exe " process_name
     }
-
     return fallbackWindow
 }
 
@@ -254,11 +258,12 @@ retrieveWindowInfo(window)
         OutputDebug("" A_Now " Window [" window "] does not exist! Failed to retrieve its info!")
         return windowInfo
     }
-
-    windowInfo["ID"] := WinGetID(window)
-    windowInfo["CLS"] := WinGetClass(window)
-    windowInfo["PID"] := WinGetPID(window)
-    windowInfo["EXE"] := WinGetProcessName(window)
+    windowInfo := Map(
+        "ID", WinGetID(window),
+        "CLS", WinGetClass(window),
+        "PID", WinGetPID(window),
+        "EXE", WinGetProcessName(window)
+    )
 
     return windowInfo
 }
@@ -284,52 +289,53 @@ activateWindow(window)
 ; Calculate the number of polls it will take for the time (in seconds) to pass.
 retrieveRemainingPolls(minutes)
 {
-    return Max(1, Round(minutes * 60 / config["POLL_INTERVAL"]))
+    return Max(1, Round(minutes * 60 / config.Get("POLL_INTERVAL")))
 }
 
 ; Find and return a specific attribute for a program, prioritising values in PROCESS_OVERRIDES.
 ; If an override has not been setup for that process, the default value for all programs will be used instead.
 getAttributeValue(attributeName, process)
 {
-    processOverrides := config["PROCESS_OVERRIDES"]
+    processOverrides := config.Get("PROCESS_OVERRIDES")
     if (processOverrides.Has(process) && processOverrides[process].Has(attributeName))
     {
         return processOverrides[process][attributeName]
     }
 
-    return config[attributeName]
+    return config.Get(attributeName)
 }
 
 updateSystemTray()
 {
     ; Count managed and monitored windows
-    managed := states["ManagedWindows"]
-    monitor := states["MonitoredWindows"]
-    for process, windows in states["ProcessList"]
+    managed := states.Get("ManagedWindows")
+    monitor := states.Get("MonitoredWindows")
+    processes := states.Get("Processes")
+    for process_name, in processes
     {
-        managed[process] := 0
-        monitor[process] := 0
-
+        managedProcess := managed.Set(process_name, 0).Get(process_name)
+        monitoredProcess := monitor.Set(process_name, 0).Get(process_name)
+        windows := processes.Get(process_name).Get("windows")
         for , window in windows
         {
-            if (window["status"] = "MonitoringStatus")
+            if (window.Get("status") = "MonitoringStatus")
             {
-                monitor[process] += 1
+                managedProcess += 1
             }
-            else if (window["status"] = "ManagingStatus")
+            else if (window.Get("status") = "ManagingStatus")
             {
-                managed[process] += 1
+                monitoredProcess += 1
             }
         }
 
-        if (managed[process] = 0)
+        if (managedProcess = 0)
         {
-            managed.Delete(process)
+            managed.Delete(process_name)
         }
 
-        if (monitor[process] = 0)
+        if (monitoredProcess = 0)
         {
-            monitor.Delete(process)
+            monitor.Delete(process_name)
         }
     }
 
@@ -389,29 +395,32 @@ updateSystemTray()
 
 generateWindowTimers()
 {
-    for , process in config["PROCESSES"]
+    for , process_name in config.Get("PROCESSES")
     {
-        windowIds := WinGetList("ahk_exe" process)
+        windowIds := WinGetList("ahk_exe" process_name)
         if (!windowIds)
         {
             continue
         }
-        pollsLeft := retrieveRemainingPolls(getAttributeValue("WINDOW_TIMEOUT", process))
+        pollsLeft := retrieveRemainingPolls(getAttributeValue("WINDOW_TIMEOUT", process_name))
         for , windowId in windowIds
         {
+            windows := states.get("Processes").Get(process_name).Get("windows")
             ; Process specified doesn't have a window task timer yet
-            if (!states["ProcessList"][process].Has(windowId))
+            if (!windows.Has(windowId))
             {
-                if (states["ProcessList"][process].Count >= 1)
+                if (windows.Count >= 1)
                 {
                     continue
                 }
                 ; Create a map for this process' window task timer
-                OutputDebug("" A_Now " Created window for " process " [Window ID: " windowId "]")
-                states["ProcessList"][process][windowId] := Map(
-                    "status", "MonitoringStatus",
-                    "pollsLeft", pollsLeft
+                windows.Set(
+                    windowId, Map(
+                        "status", "MonitoringStatus",
+                        "pollsLeft", pollsLeft
+                    )
                 )
+                OutputDebug("" A_Now " Created window for " process_name " [Window ID: " windowId "]")
             }
         }
     }
@@ -419,19 +428,21 @@ generateWindowTimers()
 
 checkWindowTaskTimers()
 {
-    for process, windows in states["ProcessList"]
+    processes := states.Get("Processes")
+    for process_name, in processes
     {
-        windowTimeoutMinutes := getAttributeValue("WINDOW_TIMEOUT", process)
+        windowTimeoutMinutes := getAttributeValue("WINDOW_TIMEOUT", process_name)
         monitorPollsLeft := retrieveRemainingPolls(windowTimeoutMinutes)
-        managingPollsLeft := retrieveRemainingPolls(getAttributeValue("TASK_INTERVAL", process))
-        taskAction := getAttributeValue("TASK", process)
-        isInputBlock := getAttributeValue("IS_INPUT_BLOCK", process)
+        managingPollsLeft := retrieveRemainingPolls(getAttributeValue("TASK_INTERVAL", process_name))
+        taskAction := getAttributeValue("TASK", process_name)
+        isInputBlock := getAttributeValue("IS_INPUT_BLOCK", process_name)
+        windows := processes.Get(process_name).Get("windows")
         for windowId, window in windows
         {
             if (!WinExist("ahk_id" windowId))
             {
-                OutputDebug("" A_Now " Window for process " process " does not exist! (Deleted Window Task Timer) [Window ID: " windowId "]")
-                states["ProcessList"][process].Delete(windowId)
+                OutputDebug("" A_Now " Window for process " process_name " does not exist! (Deleted Window Task Timer) [Window ID: " windowId "]")
+                windows.Delete(windowId)
                 continue
             }
             if (WinActive("ahk_id" windowId))
@@ -443,7 +454,7 @@ checkWindowTaskTimers()
                         "status", "MonitoringStatus",
                         "pollsLeft", monitorPollsLeft
                     )
-                    states["ProcessList"][process][windowId] := window
+                    windows.Set(windowId, window)
                     continue
                 }
                 OutputDebug("" A_Now " Active Target Window: Inactivity detected! [Window ID:" windowId "]")
@@ -462,7 +473,7 @@ checkWindowTaskTimers()
                 )
                 performWindowTask(windowId, taskAction, isInputBlock)
             }
-            states["ProcessList"][process][windowId] := window
+            windows.Set(windowId, window)
         }
     }
 }
@@ -475,8 +486,8 @@ poll()
 }
 
 requestElevation()
-createProcessList()
+createProcesses()
 ; Initiate the first poll
 poll()
 ; Poll again according to what's configured as its interval
-SetTimer(poll, config["POLL_INTERVAL"] * 1000)
+SetTimer(poll, config.Get("POLL_INTERVAL") * 1000)
