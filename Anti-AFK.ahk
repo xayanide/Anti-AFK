@@ -12,7 +12,7 @@ config["POLL_INTERVAL"] := 5
 ; WINDOW_TIMEOUT (Minutes):
 ;   This is the amount of time before a window is considered inactive. After
 ;   a window has timed out, Anti-AFK will start resetting any AFK timers.
-config["WINDOW_TIMEOUT"] := 10
+config["WINDOW_TIMEOUT"] := 1
 
 ; TASK (Function):
 ;   This is a function that will be ran by the script in order to reset any
@@ -28,7 +28,7 @@ config["TASK"] := () => (
 ; TASK_INTERVAL (Minutes):
 ;   This is the amount of time the script will wait after calling the TASK function
 ;   before calling it again.
-config["TASK_INTERVAL"] := 10
+config["TASK_INTERVAL"] := 1
 
 ; IS_INPUT_BLOCK (Boolean):
 ;   This tells the script whether you want to block input whilst it shuffles
@@ -54,8 +54,8 @@ config["PROCESSES"] := [
 config["PROCESS_OVERRIDES"] := Map(
     "wordpad.exe", Map(
         "overrides", Map(
-            "WINDOW_TIMEOUT", 10,
-            "TASK_INTERVAL", 10,
+            "WINDOW_TIMEOUT", 1,
+            "TASK_INTERVAL", 1,
             "IS_INPUT_BLOCK", false,
             "TASK", () => (
                 Send("1")
@@ -130,10 +130,12 @@ createProcesses()
 
 performWindowTask(windowId, invokeTask, isInputBlock)
 {
+    
     activeWindow := "A"
     activeInfo := retrieveWindowInfo(activeWindow)
     targetInfo := retrieveWindowInfo("ahk_id " windowId)
     targetWindow := "ahk_id " targetInfo["ID"]
+    OutputDebug("" A_Now " @performWindowTask: Starting task for window [" targetWindow "] ")
     oldActiveWindow := getWindow(
         activeInfo["ID"],
         activeInfo["PID"],
@@ -207,11 +209,10 @@ performWindowTask(windowId, invokeTask, isInputBlock)
         }
         if (!WinActive(oldActiveWindow))
         {
-            OutputDebug("" A_Now " Old Window [" oldActiveWindow "] is not active! Activating...")
             activateWindow(oldActiveWindow)
         }
         blockUserInput("Off", isInputBlock)
-        OutputDebug("" A_Now " @performWindowTask: Finished its operations for Window [" targetWindow "]")
+        OutputDebug("" A_Now " @performWindowTask: Finished task for window [" targetWindow "] ")
     }
 }
 
