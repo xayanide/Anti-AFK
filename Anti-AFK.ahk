@@ -144,8 +144,8 @@ performWindowTask(windowId, invokeTask, isInputBlock)
         ; Issues:
         ; When the user quickly switches between specified process' windows, the script might still poll and decrements one of their timer. The supposed behavior is to reset the polls
         ; For CoreWindows, if these are the active windows. No other windows can be activated, the taskbar icons will flash.
-        ; Not even #WinActivateForce directive can mitigate this issue, still finding a solution for this.
-        ; For example like notepad.exe, if you open another Window within the same process notepad.exe. The script prior to my changes is struggling to handle it. WinWaitActive gets stuck.
+        ; Not even #WinActivateForce directive can mitigate this issue, still finding a solution for this, i.e, Open the clock in Windows 10, SearchApp.exe or Notifications then wait for the window timers to perform their task.
+        ; Another different issue similar to this for example like notepad.exe, if you open another Window within the same process notepad.exe. The script prior to my changes is struggling to handle it. WinWaitActive gets stuck.
         ; There are tooltips when you hover over Category buttons in wordpad.exe, those are also read as windows and get added as windows to the process windows list, 
         ; they are retained there indefinitely (those created window maps) which means they're unhandled once the process' window is closed by the user.
         ; Certain windows that appear within the same process like notepad.exe's Saving window, the script is also unable to activate the main window properly.
