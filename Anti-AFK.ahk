@@ -314,10 +314,6 @@ updateSystemTray()
     for process_name, in processes
     {
         windows := processes.Get(process_name).Get("windows")
-        if (windows.Count <= 0)
-        {
-            continue
-        }
         managedProcess := managed.Set(process_name, 0).Get(process_name)
         monitoredProcess := monitor.Set(process_name, 0).Get(process_name)
         for , window in windows
