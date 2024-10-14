@@ -308,21 +308,22 @@ getAttributeValue(attributeName, process)
 updateSystemTray()
 {
     ; Count managed and monitored windows
-    managed := states.Get("ManagedWindows")
-    monitor := states.Get("MonitoredWindows")
+    monitoredWindows := states.Get("MonitoredWindows")
+    managedWindows := states.Get("ManagedWindows")
     processes := states.Get("Processes")
     for process_name, in processes
     {
         windows := processes.Get(process_name).Get("windows")
-        managedProcess := managed.Set(process_name, 0).Get(process_name)
-        monitoredProcess := monitor.Set(process_name, 0).Get(process_name)
+        monitoredProcess := monitoredWindows.Set(process_name, 0).Get(process_name)
+        managedProcess := managedWindows.Set(process_name, 0).Get(process_name)
         for , window in windows
         {
-            if (window.Get("status") = "MonitoringStatus")
+            windowStatus := window.Get("status")
+            if (windowStatus = "MonitoringStatus")
             {
                 monitoredProcess += 1
             }
-            else if (window.Get("status") = "ManagingStatus")
+            else if (windowStatus = "ManagingStatus")
             {
                 managedProcess += 1
             }
@@ -330,32 +331,32 @@ updateSystemTray()
 
         if (monitoredProcess = 0)
         {
-            monitor.Delete(process_name)
+            monitoredWindows.Delete(process_name)
         }
 
         if (managedProcess = 0)
         {
-            managed.Delete(process_name)
+            managedWindows.Delete(process_name)
         }
     }
 
     ; Managing windows
-    if (managed.Count > 0)
+    if (managedWindows.Count > 0)
     {
         TraySetIcon(A_AhkPath, 2)
         ; Managing windows and monitoring windows
-        if (monitor.Count > 0)
+        if (monitoredWindows.Count > 0)
         {
             newTip := "Managing:`n"
-            for process, windows in managed
+            for process_name, windowsCount in managedWindows
             {
-                newTip := newTip process " - " windows "`n"
+                newTip := newTip process_name " - " windowsCount "`n"
             }
             newTip := newTip "`nMonitoring:`n"
 
-            for process, windows in monitor
+            for process_name, windowsCount in monitoredWindows
             {
-                newTip := newTip process " - " windows "`n"
+                newTip := newTip process_name " - " windowsCount "`n"
             }
             newTip := RTrim(newTip, "`n")
             A_IconTip := newTip
@@ -363,9 +364,9 @@ updateSystemTray()
         }
         ; Managing only
         newTip := "Managing:`n"
-        for process, windows in managed
+        for process_name, windowsCount in managedWindows
         {
-            newTip := newTip process " - " windows "`n"
+            newTip := newTip process_name " - " windowsCount "`n"
         }
 
         newTip := RTrim(newTip, "`n")
@@ -374,14 +375,14 @@ updateSystemTray()
     }
 
     ; Only monitoring windows
-    if (monitor.Count > 0)
+    if (monitoredWindows.Count > 0)
     {
         TraySetIcon(A_AhkPath, 3)
 
         newTip := "Monitoring:`n"
-        for process, windows in monitor
+        for process_name, windowsCount in monitoredWindows
         {
-            newTip := newTip process " - " windows "`n"
+            newTip := newTip process_name " - " windowsCount "`n"
         }
         newTip := RTrim(newTip, "`n")
         A_IconTip := newTip
