@@ -1,4 +1,9 @@
+; --------------------
+; Configuration
+; --------------------
+
 global config := Map()
+
 ; POLL_INTERVAL (Seconds):
 ;   This is the interval which Anti-AFK checks for new windows and calculates
 ;   how much time is left before exisiting windows become inactve.
@@ -57,9 +62,9 @@ config["PROCESS_OVERRIDES"] := Map(
     )
 )
 
-; ------------------------------------------------------------------------------
-;                                    Script
-; ------------------------------------------------------------------------------
+; --------------------
+; Script
+; --------------------
 #Requires AutoHotkey v2.0
 #SingleInstance
 #Warn
@@ -73,9 +78,6 @@ states["ProcessList"] := Map()
 states["MonitoredWindows"] := Map()
 states["ManagedWindows"] := Map()
 
-; Check if the script is running as admin and if keystrokes need to be blocked. If it does not have admin
-; privileges the user is prompted to elevate it's permissions. Should they deny, the ability to block input
-; is disabled and the script continues as normal.
 requestElevation()
 {
     ; Admin already, do nothing
@@ -121,17 +123,12 @@ createProcessList()
     }
 }
 
-; Reset the AFK timer for a particular window, blocking input if required.
-; Input is sent directly to the target window if it's active; If there is no active window the target
-; window is made active.
-; If another window is active, its handle is stored while the target is made transparent and activated.
-; Any AFK timers are reset and the target is sent to the back before being made opaque again. Focus is then
-; restored to the original window.
 performWindowTask(windowId, invokeTask, isInputBlock)
 {
+    OutputDebug("" A_Now " @performWindowTask: Started")
     activeWindow := "A"
-    activeInfo := getWindowInfo(activeWindow)
-    targetInfo := getWindowInfo("ahk_id " windowId)
+    activeInfo := retrieveWindowInfo(activeWindow)
+    targetInfo := retrieveWindowInfo("ahk_id " windowId)
     targetWindow := "ahk_id " targetInfo["ID"]
     oldActiveWindow := getWindow(
         activeInfo["ID"],
@@ -139,13 +136,8 @@ performWindowTask(windowId, invokeTask, isInputBlock)
         activeInfo["EXE"],
         targetWindow
     )
-    if (!oldActiveWindow) {
-        OutputDebug("" A_Now " Unknown active window!")
-        return
-    }
     try
     {
-
         OutputDebug("" A_Now " Active Window INFO : [CLS:" activeInfo["CLS"] "] [ID:" activeInfo["ID"] "] [PID:" activeInfo["PID"] "] [EXE:" activeInfo["EXE"] "] [Window:" oldActiveWindow "]")
         OutputDebug("" A_Now " Target Window INFO : [CLS:" targetInfo["CLS"] "] [ID:" targetInfo["ID"] "] [PID:" targetInfo["PID"] "] [EXE:" targetInfo["EXE"] "] [Window:" targetWindow "]")
 
@@ -195,11 +187,13 @@ performWindowTask(windowId, invokeTask, isInputBlock)
             OutputDebug("" A_Now " Inactive Target Window [" targetWindow "] Setting transparency as Off...")
             WinSetTransparent("Off", targetWindow)
         }
-        if (!WinActive(oldActiveWindow)) {
+        if (!WinActive(oldActiveWindow))
+        {
             OutputDebug("" A_Now " Old Window [" oldActiveWindow "] is not active! Activating...")
             activateWindow(oldActiveWindow)
         }
         blockUserInput("Off", isInputBlock)
+        OutputDebug("" A_Now " @performWindowTask: Finished its operations")
     }
 }
 
@@ -237,13 +231,14 @@ getWindow(window_ID, process_ID, process_name, fallbackWindow)
     return fallbackWindow
 }
 
-; Get information about a window so that it can be found and reactivated later.
-getWindowInfo(window)
+; Retrieve information about a window so that it can be found and reactivated later.
+retrieveWindowInfo(window)
 {
     windowInfo := Map()
 
     if (!WinExist(window))
     {
+        OutputDebug("" A_Now " Window [" window "] does not exist! Failed to retrieve its info!")
         return windowInfo
     }
 
@@ -259,7 +254,7 @@ activateWindow(window)
 {
     if (!WinExist(window))
     {
-        OutputDebug("" A_Now " Window [" window "] cannot be found!")
+        OutputDebug("" A_Now " Window [" window "] does not exist! Unable to activate!")
         return false
     }
     WinActivate(window)
@@ -274,7 +269,7 @@ activateWindow(window)
 }
 
 ; Calculate the number of polls it will take for the time (in seconds) to pass.
-getRemainingPolls(minutes)
+retrieveRemainingPolls(minutes)
 {
     return Max(1, Round(minutes * 60 / config["POLL_INTERVAL"]))
 }
@@ -292,12 +287,9 @@ getAttributeValue(attributeName, process)
     return config[attributeName]
 }
 
-; Dynamically update the System Tray icon and tooltip text, taking into consideration the number
-; of windows that the script has found and the number of windows it is managing.
 updateSystemTray()
 {
-    ; Count how many windows are actively managed and how many
-    ; are being monitored so we can guage the script's activity.
+    ; Count managed and monitored windows
     managed := states["ManagedWindows"]
     monitor := states["MonitoredWindows"]
     for process, windows in states["ProcessList"]
@@ -307,11 +299,11 @@ updateSystemTray()
 
         for , window in windows
         {
-            if (window["status"] = "TimeoutStatus")
+            if (window["status"] = "MonitoringStatus")
             {
                 monitor[process] += 1
             }
-            else if (window["status"] = "ManagedStatus")
+            else if (window["status"] = "ManagingStatus")
             {
                 managed[process] += 1
             }
@@ -328,13 +320,11 @@ updateSystemTray()
         }
     }
 
-    ; If windows are being managed that means the script is periodically
-    ; sending input. We update the SysTray to with the number of windows
-    ; that are being managed.
+    ; Managing windows
     if (managed.Count > 0)
     {
         TraySetIcon(A_AhkPath, 2)
-
+        ; Managing windows and monitoring windows
         if (monitor.Count > 0)
         {
             newTip := "Managing:`n"
@@ -350,25 +340,21 @@ updateSystemTray()
             }
             newTip := RTrim(newTip, "`n")
             A_IconTip := newTip
+            return
         }
-        else
+        ; Managing only
+        newTip := "Managing:`n"
+        for process, windows in managed
         {
-            newTip := "Managing:`n"
-            for process, windows in managed
-            {
-                newTip := newTip process " - " windows "`n"
-            }
-
-            newTip := RTrim(newTip, "`n")
-            A_IconTip := newTip
+            newTip := newTip process " - " windows "`n"
         }
 
+        newTip := RTrim(newTip, "`n")
+        A_IconTip := newTip
         return
     }
 
-    ; If we are not managing any windows but the script is still monitoring
-    ; them in case they go inactive, the SysTray is updated with the number
-    ; of windows that we are watching.
+    ; Only monitoring windows
     if (monitor.Count > 0)
     {
         TraySetIcon(A_AhkPath, 3)
@@ -380,74 +366,78 @@ updateSystemTray()
         }
         newTip := RTrim(newTip, "`n")
         A_IconTip := newTip
-
         return
     }
 
-    ; If we get to this point the script is not managing or watching any windows.
-    ; Essensially the script isn't doing anything and we make sure the icon conveys
-    ; this if it hasn't already.
+    ; Not monitoring nor managing windows
     TraySetIcon(A_AhkPath, 5)
     A_IconTip := "No windows found"
 }
 
-; Create and return an updated copy of the old window list. A new list is made from scratch and
-; populated with the current windows. Timings for these windows are then copied from the old list
-; if they are present, otherwise the default timeout is assigned.
-refreshWindowsTimers()
+generateWindowTimers()
 {
     for , process in config["PROCESSES"]
     {
+        pollsLeft := retrieveRemainingPolls(getAttributeValue("WINDOW_TIMEOUT", process))
         for , windowId in WinGetList("ahk_exe" process)
         {
+            ; Process doesn't have a window task timer yet
             if (!states["ProcessList"][process].Has(windowId))
             {
-                pollsLeft := getAttributeValue("WINDOW_TIMEOUT", process)
+                OutputDebug("" A_Now " Creating window task timer for process " process " [Window ID: " windowId "]...")
+                ; Create a map for this process' window task timer
                 states["ProcessList"][process][windowId] := Map(
-                    "status", "TimeoutStatus",
-                    "pollsLeft", getRemainingPolls(pollsLeft)
+                    "status", "MonitoringStatus",
+                    "pollsLeft", pollsLeft
                 )
             }
         }
     }
 }
 
-tickWindowsTimers()
+checkWindowTaskTimers()
 {
     for process, windows in states["ProcessList"]
     {
         windowTimeoutMinutes := getAttributeValue("WINDOW_TIMEOUT", process)
-        taskInterval := getAttributeValue("TASK_INTERVAL", process)
+        monitorPollsLeft := retrieveRemainingPolls(windowTimeoutMinutes)
+        managingPollsLeft := retrieveRemainingPolls(getAttributeValue("TASK_INTERVAL", process))
         taskAction := getAttributeValue("TASK", process)
         isInputBlock := getAttributeValue("IS_INPUT_BLOCK", process)
 
         for windowId, window in windows
         {
+            if (!WinExist("ahk_id" windowId))
+            {
+                OutputDebug("" A_Now " Process " process " Window doesn't exist anymore! (Deleted Window Task Timer) [Window ID: " windowId "]")
+                states["ProcessList"][process].Delete(windowId)
+                continue
+            }
             if (WinActive("ahk_id" windowId))
             {
                 if (A_TimeIdlePhysical < (windowTimeoutMinutes * 60000))
                 {
-                    OutputDebug("" A_Now " Active Window: Activity detected! [Window ID:" windowId "]")
+                    OutputDebug("" A_Now " Active Target Window: Activity detected! [Window ID:" windowId "]")
                     window := Map(
-                        "status", "TimeoutStatus",
-                        "pollsLeft", getRemainingPolls(windowTimeoutMinutes)
+                        "status", "MonitoringStatus",
+                        "pollsLeft", monitorPollsLeft
                     )
                     states["ProcessList"][process][windowId] := window
                     continue
                 }
-                OutputDebug("" A_Now " Active Window: Inactivity detected! [Window ID:" windowId "]")
-                if (window["status"] = "TimeoutStatus")
+                OutputDebug("" A_Now " Active Target Window: Inactivity detected! [Window ID:" windowId "]")
+                if (window["status"] = "MonitoringStatus")
                 {
                     window["pollsLeft"] = 1
                 }
             }
             window["pollsLeft"] -= 1
-            OutputDebug("" A_Now " Inactive Window: " window["pollsLeft"] " polls remaining " "[Window ID:" windowId "]")
+            OutputDebug("" A_Now " Inactive Target Window: " window["pollsLeft"] " polls remaining " "[Window ID:" windowId "]")
             if (window["pollsLeft"] <= 0)
             {
                 window := Map(
-                    "status", "ManagedStatus",
-                    "pollsLeft", getRemainingPolls(taskInterval)
+                    "status", "ManagingStatus",
+                    "pollsLeft", managingPollsLeft
                 )
                 performWindowTask(windowId, taskAction, isInputBlock)
             }
@@ -456,17 +446,16 @@ tickWindowsTimers()
     }
 }
 
-pollsElapsed := 0
 poll()
 {
-    global pollsElapsed
-    OutputDebug("" A_Now " " pollsElapsed " ----------")
-    refreshWindowsTimers()
-    tickWindowsTimers()
+    generateWindowTimers()
+    checkWindowTaskTimers()
     updateSystemTray()
-    pollsElapsed += 1
 }
+
 requestElevation()
 createProcessList()
+; Initiate the first poll
 poll()
+; Poll again according to what's configured as its interval
 SetTimer(poll, config["POLL_INTERVAL"] * 1000)
