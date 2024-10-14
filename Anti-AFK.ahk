@@ -7,12 +7,12 @@ global config := Map()
 ; POLL_INTERVAL (Seconds):
 ;   This is the interval which Anti-AFK checks for new windows and calculates
 ;   how much time is left before exisiting windows become inactve.
-config["POLL_INTERVAL"] := 1
+config["POLL_INTERVAL"] := 5
 
 ; WINDOW_TIMEOUT (Minutes):
 ;   This is the amount of time before a window is considered inactive. After
 ;   a window has timed out, Anti-AFK will start resetting any AFK timers.
-config["WINDOW_TIMEOUT"] := 0.18
+config["WINDOW_TIMEOUT"] := 10
 
 ; TASK (Function):
 ;   This is a function that will be ran by the script in order to reset any
@@ -28,7 +28,7 @@ config["TASK"] := () => (
 ; TASK_INTERVAL (Minutes):
 ;   This is the amount of time the script will wait after calling the TASK function
 ;   before calling it again.
-config["TASK_INTERVAL"] := 0.18
+config["TASK_INTERVAL"] := 10
 
 ; IS_INPUT_BLOCK (Boolean):
 ;   This tells the script whether you want to block input whilst it shuffles
@@ -54,8 +54,8 @@ config["PROCESSES"] := [
 config["PROCESS_OVERRIDES"] := Map(
     "wordpad.exe", Map(
         "overrides", Map(
-            "WINDOW_TIMEOUT", 0.18,
-            "TASK_INTERVAL", 0.18,
+            "WINDOW_TIMEOUT", 10,
+            "TASK_INTERVAL", 10,
             "IS_INPUT_BLOCK", false,
             "TASK", () => (
                 Send("1")
@@ -313,9 +313,13 @@ updateSystemTray()
     processes := states.Get("Processes")
     for process_name, in processes
     {
+        windows := processes.Get(process_name).Get("windows")
+        if (windows.Count <= 0)
+        {
+            continue
+        }
         managedProcess := managed.Set(process_name, 0).Get(process_name)
         monitoredProcess := monitor.Set(process_name, 0).Get(process_name)
-        windows := processes.Get(process_name).Get("windows")
         for , window in windows
         {
             if (window.Get("status") = "MonitoringStatus")
@@ -409,6 +413,7 @@ generateWindowTimers()
             ; Process specified doesn't have a window task timer yet
             if (!windows.Has(windowId))
             {
+                ; Workaround for multiple windows on one process, skip anything that don't have to do with the main window
                 if (windows.Count >= 1)
                 {
                     continue
@@ -431,12 +436,16 @@ checkWindowTaskTimers()
     processes := states.Get("Processes")
     for process_name, in processes
     {
+        windows := processes.Get(process_name).Get("windows")
+        if (windows.Count <= 0)
+        {
+            continue
+        }
         windowTimeoutMinutes := getAttributeValue("WINDOW_TIMEOUT", process_name)
         monitorPollsLeft := retrieveRemainingPolls(windowTimeoutMinutes)
         managingPollsLeft := retrieveRemainingPolls(getAttributeValue("TASK_INTERVAL", process_name))
         taskAction := getAttributeValue("TASK", process_name)
         isInputBlock := getAttributeValue("IS_INPUT_BLOCK", process_name)
-        windows := processes.Get(process_name).Get("windows")
         for windowId, window in windows
         {
             if (!WinExist("ahk_id" windowId))
