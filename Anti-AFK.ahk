@@ -407,15 +407,15 @@ generateWindowTimers()
         for , windowId in windowIds
         {
             windows := states.get("Processes").Get(process_name).Get("windows")
-            ; Process specified doesn't have a window task timer yet
+            ; Process specified doesn't have a window mpap yet
             if (!windows.Has(windowId))
             {
-                ; Workaround for multiple windows on one process, skip anything that don't have to do with the main window
+                ; Workaround for multiple windows on one process, skip creating windows that does not have anything to do with the main window
                 if (windows.Count >= 1)
                 {
                     continue
                 }
-                ; Create a map for this process' window task timer
+                ; Create a window map with task timer for this process
                 windows.Set(
                     windowId, Map(
                         "status", "MonitoringStatus",
