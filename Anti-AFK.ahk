@@ -141,12 +141,13 @@ performWindowTask(windowId, invokeTask, isInputBlock)
         OutputDebug("" A_Now " Active Window INFO : [CLS:" activeInfo["CLS"] "] [ID:" activeInfo["ID"] "] [PID:" activeInfo["PID"] "] [EXE:" activeInfo["EXE"] "] [Window:" oldActiveWindow "]")
         OutputDebug("" A_Now " Target Window INFO : [CLS:" targetInfo["CLS"] "] [ID:" targetInfo["ID"] "] [PID:" targetInfo["PID"] "] [EXE:" targetInfo["EXE"] "] [Window:" targetWindow "]")
 
-
+        ; Issues:
+        ; When the user quickly switches between specified process' windows, the script might still poll and decrements one of their timer. The supposed behavior is to reset the polls
         ; For CoreWindows, if these are the active windows. No other windows can be activated, the taskbar icons will flash.
         ; Not even #WinActivateForce directive can mitigate this issue, still finding a solution for this.
-        ; Issues:
         ; For example like notepad.exe, if you open another Window within the same process notepad.exe. The script prior to my changes is struggling to handle it. WinWaitActive gets stuck.
-        ; There are tooltips when you hover over Category buttons in wordpad.exe, those are also read as windows and gets added as windows to the process windows list, they are retained there indefinitely which means they're unhandled once they're gone.
+        ; There are tooltips when you hover over Category buttons in wordpad.exe, those are also read as windows and get added as windows to the process windows list, 
+        ; they are retained there indefinitely (those created window maps) which means they're unhandled once the process' window is closed by the user.
         ; Certain windows that appear within the same process like notepad.exe's Saving window, the script is also unable to activate the main window properly.
         ; The change I implemented was only creating 1 window map for a process, if there are more windows for a certain process, ignore it, it's only a temporary workaround.
         ; There are also optimizations I implemented, like early continue and return clauses, and decluttering of variables and edge cases
