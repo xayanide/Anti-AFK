@@ -7,7 +7,7 @@ config["POLL_INTERVAL"] := 1
 ; WINDOW_TIMEOUT (Minutes):
 ;   This is the amount of time before a window is considered inactive. After
 ;   a window has timed out, Anti-AFK will start resetting any AFK timers.
-config["WINDOW_TIMEOUT"] := 1
+config["WINDOW_TIMEOUT"] := 0.18
 
 ; TASK (Function):
 ;   This is a function that will be ran by the script in order to reset any
@@ -17,13 +17,12 @@ config["TASK"] := () => (
     ; Send("{Space Down}")
     ; Sleep(1)
     ; Send("{Space Up}")
-    Send("1")
-)
+    Send("1"))
 
 ; TASK_INTERVAL (Minutes):
 ;   This is the amount of time the script will wait after calling the TASK function
 ;   before calling it again.
-config["TASK_INTERVAL"] := 1
+config["TASK_INTERVAL"] := 0.18
 
 ; IS_INPUT_BLOCK (Boolean):
 ;   This tells the script whether you want to block input whilst it shuffles
@@ -48,8 +47,8 @@ config["PROCESSES"] := [
 ;   reset the AFK timer does not work as well across different applications.
 config["PROCESS_OVERRIDES"] := Map(
     "wordpad.exe", Map(
-        "WINDOW_TIMEOUT", 1,
-        "TASK_INTERVAL", 1,
+        "WINDOW_TIMEOUT", 0.18,
+        "TASK_INTERVAL", 0.18,
         "IS_INPUT_BLOCK", false,
         "TASK", () => (
             Send("1")
@@ -62,6 +61,8 @@ config["PROCESS_OVERRIDES"] := Map(
 ; ------------------------------------------------------------------------------
 #Requires AutoHotkey v2.0
 #SingleInstance
+#Warn
+
 InstallKeybdHook()
 InstallMouseHook()
 KeyHistory(0)
@@ -125,65 +126,78 @@ createProcessList()
 ; If another window is active, its handle is stored while the target is made transparent and activated.
 ; Any AFK timers are reset and the target is sent to the back before being made opaque again. Focus is then
 ; restored to the original window.
-performWindowTask(windowId, taskAction, DenyInput)
+performWindowTask(windowId, invokeTask, isInputBlock)
 {
     try
     {
-        activeInfo := getWindowInfo("A")
+        activeWindow := "A"
+        activeInfo := getWindowInfo(activeWindow)
         targetInfo := getWindowInfo("ahk_id " windowId)
         targetWindow := "ahk_id " targetInfo["ID"]
-
-        ; Activates the target window if there is no active window or the Desktop is focused.
-        ; Bringing the Desktop window to the front can cause some scaling issues, so we ignore it.
-        ; The Desktop's window has a class of "WorkerW" or "Progman"
-        ; Handles no window / explorer.exe / Desktop / 
-        if (!activeInfo.Count || (activeInfo["CLS"] = "WorkerW" || activeInfo["CLS"] = "Progman" || activeInfo["EXE"] = "ShellExperienceHost.exe" || activeInfo["EXE"] = "SearchApp.exe"))
-        {
-            activateWindow(targetWindow)
-        }
-
-        ; Send input directly if the target window is already active.
-        if (WinActive(targetWindow))
-        {
-            taskAction()
-            return
-        }
-
-        blockUserInput("On")
-
-        WinSetTransparent(0, targetWindow)
-        activateWindow(targetWindow)
-
-        taskAction()
-
-        WinMoveBottom(targetWindow)
-        WinSetTransparent("Off", targetWindow)
-
         oldActiveWindow := getWindow(
             activeInfo["ID"],
             activeInfo["PID"],
             activeInfo["EXE"],
             targetWindow
         )
+        OutputDebug("" A_Now " Active Window INFO : [CLS:" activeInfo["CLS"] "] [ID:" activeInfo["ID"] "] [PID:" activeInfo["PID"] "] [EXE:" activeInfo["EXE"] "] [Window:" oldActiveWindow "]")
+        OutputDebug("" A_Now " Target Window INFO : [CLS:" targetInfo["CLS"] "] [ID:" targetInfo["ID"] "] [PID:" targetInfo["PID"] "] [EXE:" targetInfo["EXE"] "] [Window:" targetWindow "]")
+
+        ; Activates the target window if there is no active window or the Desktop is focused.
+        ; Bringing the Desktop window to the front can cause some scaling issues, so we ignore it.
+        ; The Desktop's window has a class of "WorkerW" or "Progman"
+        ; Handles no window / explorer.exe / Desktop /
+        if (WinActive(oldActiveWindow) && (activeInfo["CLS"] = "Windows.UI.Core.CoreWindow"))
+        {
+            OutputDebug("" A_Now " Active Window [" oldActiveWindow "] is a core window!")
+        }
+        if (!activeInfo.Count || (activeInfo["CLS"] = "WorkerW" || activeInfo["CLS"] = "Progman"))
+        {
+            OutputDebug("" A_Now " Active Window [" targetWindow "] is a Desktop! Activating taget window...")
+            activateWindow(targetWindow)
+        }
+        ; Perform action directly if the target window is already active.
+        if (WinActive(targetWindow))
+        {
+            invokeTask()
+            OutputDebug("" A_Now " Target Window [" targetWindow "] was already active and successfully performed its task!")
+            return
+        }
+        blockUserInput("On", isInputBlock)
+        WinSetTransparent(0, targetWindow)
+        activateWindow(targetWindow)
+        if (WinActive(oldActiveWindow))
+        {
+            OutputDebug("" A_Now " Target Window [" targetWindow "] failed to perform its task as user is still on old window!")
+            WinMoveBottom(targetWindow)
+            WinSetTransparent("Off", targetWindow)
+            return
+        }
+        invokeTask()
+        OutputDebug("" A_Now " Target Window [" targetWindow "] successfully performed its task!")
+
+        WinMoveBottom(targetWindow)
+        WinSetTransparent("Off", targetWindow)
 
         activateWindow(oldActiveWindow)
     }
     catch as e
     {
-        MsgBox("@performWindowTask: An error occured while performing task:`n" e "", , "OK Icon!")
+        MsgBox("@performWindowTask: An error occured while performing task:`n" e.Message "", , "OK Icon!")
     }
     finally
     {
-        blockUserInput("Off")
+        blockUserInput("Off", isInputBlock)
     }
 }
 
-blockUserInput(option)
+blockUserInput(option, isInputBlock)
 {
-    if (!config["IS_INPUT_BLOCK"] || !A_IsAdmin)
+    if (!isInputBlock || !A_IsAdmin)
     {
         return
     }
+    OutputDebug("" A_Now " Successfully BlockInput " option "")
     BlockInput(option)
 }
 
@@ -234,13 +248,21 @@ activateWindow(window)
 {
     if (!WinExist(window))
     {
+        OutputDebug("" A_Now " Window [" window "] cannot be found!")
         return
     }
     WinActivate(window)
+    value := WinWaitActive(window, , 1)
+    if (value = 0)
+    {
+        OutputDebug("" A_Now " Window [" window "] failed to activate!")
+        return
+    }
+    OutputDebug("" A_Now " Window [" window "] activated!")
 }
 
 ; Calculate the number of polls it will take for the time (in seconds) to pass.
-getLoops(minutes)
+getRemainingPolls(minutes)
 {
     return Max(1, Round(minutes * 60 / config["POLL_INTERVAL"]))
 }
@@ -273,11 +295,11 @@ updateSystemTray()
 
         for , window in windows
         {
-            if (window["status"] = "Timeout")
+            if (window["status"] = "TimeoutStatus")
             {
                 monitor[process] += 1
             }
-            else if (window["status"] = "RunningTask")
+            else if (window["status"] = "ManagedStatus")
             {
                 managed[process] += 1
             }
@@ -370,8 +392,8 @@ refreshWindowsTimers()
             {
                 pollsLeft := getAttributeValue("WINDOW_TIMEOUT", process)
                 states["ProcessList"][process][windowId] := Map(
-                    "status", "Timeout",
-                    "pollsLeft", getLoops(pollsLeft)
+                    "status", "TimeoutStatus",
+                    "pollsLeft", getRemainingPolls(pollsLeft)
                 )
             }
         }
@@ -382,7 +404,7 @@ tickWindowsTimers()
 {
     for process, windows in states["ProcessList"]
     {
-        windowTimeoutMs := getAttributeValue("WINDOW_TIMEOUT", process) * 60000
+        windowTimeoutMinutes := getAttributeValue("WINDOW_TIMEOUT", process)
         taskInterval := getAttributeValue("TASK_INTERVAL", process)
         taskAction := getAttributeValue("TASK", process)
         isInputBlock := getAttributeValue("IS_INPUT_BLOCK", process)
@@ -391,41 +413,44 @@ tickWindowsTimers()
         {
             if (WinActive("ahk_id" windowId))
             {
-                if (A_TimeIdlePhysical < windowTimeoutMs)
+                if (A_TimeIdlePhysical < (windowTimeoutMinutes * 60000))
                 {
                     window := Map(
-                        "status", "Timeout",
-                        "pollsLeft", getLoops(windowTimeoutMs / 60000))
+                        "status", "TimeoutStatus",
+                        "pollsLeft", getRemainingPolls(windowTimeoutMinutes)
+                    )
                     states["ProcessList"][process][windowId] := window
                     continue
                 }
 
-                if (window["status"] = "Timeout")
+                if (window["status"] = "TimeoutStatus")
                 {
                     window["pollsLeft"] = 1
                 }
             }
             window["pollsLeft"] -= 1
+            OutputDebug("" A_Now " Polls remaining: " window["pollsLeft"] " " "[Window ID:" windowId "]")
             if (window["pollsLeft"] <= 0)
             {
                 window := Map(
-                    "status", "RunningTask",
-                    "pollsLeft", getLoops(taskInterval)
+                    "status", "ManagedStatus",
+                    "pollsLeft", getRemainingPolls(taskInterval)
                 )
-
                 performWindowTask(windowId, taskAction, isInputBlock)
             }
-
             states["ProcessList"][process][windowId] := window
         }
     }
 }
-
+polls := 0
 poll()
 {
+    global polls
+    polls += 1
     refreshWindowsTimers()
     tickWindowsTimers()
     updateSystemTray()
+    OutputDebug("" A_Now " " polls " POLL END")
 }
 requestElevation()
 createProcessList()
