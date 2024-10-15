@@ -216,8 +216,7 @@ performWindowTask(windowId, invokeTask, isInputBlock)
         ; The active window at this point should be the target window, not the old one.
         if (WinActive(oldActiveWindow) || !isWindowActivateSucess)
         {
-            OutputDebug("[" A_Now "] [" targetWindowInfo["EXE"] "] [Window ID: " targetWindowInfo["ID"] "] isOldWindow? " WinActive(oldActiveWindow) ? "Yes" : "No" ", isActivateSuccess? " isWindowActivateSucess "")
-            OutputDebug("[" A_Now "] [" targetWindowInfo["EXE"] "] [Window ID: " targetWindowInfo["ID"] "] Inactive Target Window invokeTask() failed (canceled)")
+            OutputDebug("[" A_Now "] [" targetWindowInfo["EXE"] "] [Window ID: " targetWindowInfo["ID"] "] Inactive Target Window invokeTask() failed!")
             WinSetTransparent("Off", targetWindow)
             return
         }
