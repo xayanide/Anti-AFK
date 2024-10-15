@@ -463,9 +463,11 @@ updateSystemTray(processes)
     }
 }
 
-registerWindowIds(windows, windowIds, process_name)
+registerWindowIds(windows, process_name)
 {
-    ; All windows for the process have been closed, return the windows map as empty in that case
+    ; Retrieve all found unique window ids for this process
+    windowIds := WinGetList("ahk_exe " process_name)
+    ; There are no open windows for this process, return the windows map as empty in that case
     if (windowIds.Length < 1)
     {
         return windows
@@ -633,14 +635,13 @@ monitorProcesses()
                 processes.Delete(process_name)
                 continue
             }
-            windows := registerWindowIds(process["windows"], WinGetList("ahk_exe " process_name), process_name)
-            ; Only monitor this process' windows that have met the conditions.
-            ; If we invert the windows.count and early continue, SetTimer would be ignored as well. Early continuing is ugly here. This is the better approach
-            ; We still want to monitor the processes, which is what the SetTimer is for.
-            if (windows.Count > 0)
+            windows := registerWindowIds(process["windows"], process_name)
+            ; User does not have any windows open for this process, do not monitor the window
+            if (windows.Count < 1)
             {
-                monitorWindows(windows, process_name)
+                continue
             }
+            monitorWindows(windows, process_name)
         }
     }
     updateSystemTray(processes)
