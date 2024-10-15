@@ -144,11 +144,13 @@ registerProcesses()
     processes := states["Processes"]
     for , process_name in config["MONITOR_LIST"]
     {
-        ; This process already has a map, do not set
-        if (processes.has(process_name))
-            continue
         ; User does not have this process active from the monitor list, do not set
         if (!ProcessExist(process_name))
+        {
+            continue
+        }
+        ; This process already has a map, do not set
+        if (processes.has(process_name))
         {
             continue
         }
@@ -387,7 +389,9 @@ updateSystemTray(processes)
                 }
             }
         }
-    } else {
+    }
+    else
+    {
         ; No processes are active on the user, clear all the counters
         monitoredWindows.Clear()
         managedWindows.Clear()
@@ -623,7 +627,7 @@ monitorProcesses()
     {
         for process_name, process in processes
         {
-            ; This process no longer exists, delete it from the processes map
+            ; User no longer has this process and was closed, delete it from the processes map
             if (!ProcessExist(process_name))
             {
                 OutputDebug("[" A_Now "] [" process_name "] Deleted process map for process as it was closed by the user!")
