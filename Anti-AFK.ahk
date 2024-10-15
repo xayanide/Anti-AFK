@@ -31,7 +31,7 @@ config["POLL_INTERVAL"] := 1
 ;   The amount of time the user is deemed idle in a window they are active on.
 ;   Once the user is found to be idle for more than this time, the window's task will be performed right away.
 ;   If the user is still inactive in that same active window, it will use the time set in the TASK_INTERVAL instead.
-config["ACTIVE_WINDOW_TIMEOUT_MS"] := 5000
+config["ACTIVE_WINDOW_TIMEOUT_MS"] := 120000
 
 ; TASK (Function):
 ;   This is a function that will be ran by the script in order to reset any
@@ -40,7 +40,8 @@ config["ACTIVE_WINDOW_TIMEOUT_MS"] := 5000
 config["TASK"] := () => (
     Send("{Space Down}")
     Sleep(1)
-    Send("{Space Up}"))
+    Send("{Space Up}")
+)
 
 ; TASK_INTERVAL (Minutes):
 ;   Amount of time the window is deemed inactive, once the window is inactive for more than this time,
@@ -586,8 +587,7 @@ monitorWindows(windows, process_name)
             ; then its task will be performed right away
             if (A_TimeIdlePhysical >= config["ACTIVE_WINDOW_TIMEOUT_MS"])
             {
-
-                OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: Inactivity detected! Polling...")
+                OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: User is IDLE! Polling...")
                 if (window["status"] = "MonitoringStatus")
                 {
                     window["pollsLeft"] := 1
@@ -595,13 +595,17 @@ monitorWindows(windows, process_name)
             }
             else
             {
-                ; User is not idling on this window, reset the polls
-                OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: Activity detected! Polls has been reset!")
-                window := Map(
+                ; This window's poll is already reset, no need to set it again
+                if (window["pollsLeft"] = intervalTotalPolls)
+                {
+                    continue
+                }
+                ; User is not idling on this window, reset its polls
+                windows[windowId] := Map(
                     "status", "MonitoringStatus",
                     "pollsLeft", intervalTotalPolls
                 )
-                windows[windowId] := window
+                OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: User is ACTIVE! Polls have been reset!")
                 continue
             }
 
