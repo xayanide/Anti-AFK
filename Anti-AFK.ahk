@@ -189,7 +189,7 @@ performWindowTask(windowId, invokeTask, isInputBlock)
             Send("{Alt Down}{Tab Up}{Tab Down}")
             Sleep(500)
             Send("{Alt Up}")
-            MsgBox("For the script to perform its task to the target window properly, the script has Alt+Tabbed you out from the active window with a class name of Windows.UI.Core.CoreWindow", , "OK Icon!")
+            MsgBox("For the script to perform its operations properly, the script has Alt+Tabbed you out from the active window.`nBeing active on a window with a class name of Windows.UI.Core.CoreWindow can hinder the script from activating the monitored process' target window.`nThis pop-up box will automatically close itself in 30 seconds.", , "OK Icon! T30")
         }
 
         blockUserInput("On", isInputBlock)
