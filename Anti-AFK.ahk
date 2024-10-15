@@ -2,6 +2,24 @@
 ; Configuration
 ; --------------------
 
+; TODO:
+
+; Issues:
+; When the user quickly switches between specified process' windows, the script might still poll and decrements one of their timer. The supposed behavior is to reset the polls
+; For CoreWindows, if these are the active windows. No other windows can be activated, the taskbar icons of the target windows will flash orange.
+; Not even #WinActivateForce directive can mitigate this issue, still finding a solution for this, i.e, Open the clock (Date and time information) in Windows 10, SearchApp.exe or Notifications / Action Center then wait for the window timers to perform their task.
+; Another different issue similar to this for example like notepad.exe, if you open another Window within the same process notepad.exe. The script prior to my changes is struggling to handle it. WinWaitActive gets stuck.
+; There are tooltips when you hover over Category buttons in wordpad.exe, those are also read as windows and get added as windows to the process windows list,
+; they are retained there indefinitely (those created window maps) which means they're unhandled once the process' window is closed by the user, those should be cleaned up dynamically.
+; Certain windows that appear within the same process like notepad.exe's "Save as" "Save" windows, once those are the active windows, the script is also unable to activate the main window properly.
+; The change I implemented was only creating 1 window map for a process, if there are more windows for a certain process, it doesn't create any more maps for them, it's only a temporary workaround.
+; There are also optimizations I implemented, like early continue and return clauses, and decluttering of variables and edge cases
+; Also there was a weird behavior on relaunching as admin. Debug console in VS Code refuses to work after the launch as admin UAC
+
+; https://www.autohotkey.com/docs/v2/FAQ.htm#uac
+; Solution: For this script to be able to activate other windows while active on a CoreWindow, "Run with UI Access" this script. Run as admin will not work as a solution.
+; Alt Tabbing is another solution.
+
 global config := Map()
 
 ; POLL_INTERVAL (Seconds):
@@ -41,7 +59,8 @@ config["IS_INPUT_BLOCK"] := false
 config["MONITOR_LIST"] := [
     "RobloxPlayerBeta.exe",
     "notepad.exe",
-    "wordpad.exe"]
+    "wordpad.exe"
+]
 
 ; PROCESS_OVERRIDES (Associative Array):
 ;   This allows you to specify specific values of WINDOW_TIMEOUT, TASK_INTERVAL,
@@ -93,8 +112,7 @@ requestElevation()
     isAdminRequire := config["IS_INPUT_BLOCK"]
     for , process in config["MONITOR_OVERRIDES"]
     {
-        overrides := process["overrides"]
-        if (overrides.Has("IS_INPUT_BLOCK") && overrides["IS_INPUT_BLOCK"])
+        if (process["overrides"].Has("IS_INPUT_BLOCK") && process["overrides"]["IS_INPUT_BLOCK"])
         {
             isAdminRequire := true
         }
@@ -126,65 +144,51 @@ createProcessesAndWindowsMap()
     for , process_name in config["MONITOR_LIST"]
     {
         states["Processes"][process_name] := Map(
-            "windows", Map())
+            "windows", Map()
+        )
     }
 }
 
 performWindowTask(windowId, invokeTask, isInputBlock)
 {
     activeWindow := "A"
-    targetInfo := getWindowInfo("ahk_id " windowId)
-    OutputDebug("[" A_Now "] [" targetInfo["EXE"] "] [Window ID: " targetInfo["ID"] "] @performWindowTask: Starting operations...")
-    targetWindow := "ahk_id " targetInfo["ID"]
-    OutputDebug("[" A_Now "] Target Window INFO : [CLS:" targetInfo["CLS"] "] [ID:" targetInfo["ID"] "] [PID:" targetInfo["PID"] "] [EXE:" targetInfo["EXE"] "] [Window:" targetWindow "]")
-    ; Perform the task directly if the target window is already active.
+    targetWindowInfo := getWindowInfo("ahk_id " windowId)
+    OutputDebug("[" A_Now "] [" targetWindowInfo["EXE"] "] [Window ID: " targetWindowInfo["ID"] "] @performWindowTask: Starting operations...")
+    targetWindow := "ahk_id " targetWindowInfo["ID"]
+    OutputDebug("[" A_Now "] Target Window INFO : [CLS:" targetWindowInfo["CLS"] "] [ID:" targetWindowInfo["ID"] "] [PID:" targetWindowInfo["PID"] "] [EXE:" targetWindowInfo["EXE"] "] [Window:" targetWindow "]")
+    ; User is already active on the target window, perform the task right away
     if (WinActive(targetWindow))
     {
         invokeTask()
-        OutputDebug("[" A_Now "] [" targetInfo["EXE"] "] [Window ID: " targetInfo["ID"] "] Active Target Window task successful!")
-        OutputDebug("[" A_Now "] [" targetInfo["EXE"] "] [Window ID: " targetInfo["ID"] "] @performWindowTask: Finished operations")
+        OutputDebug("[" A_Now "] [" targetWindowInfo["EXE"] "] [Window ID: " targetWindowInfo["ID"] "] Active Target Window task successful!")
+        OutputDebug("[" A_Now "] [" targetWindowInfo["EXE"] "] [Window ID: " targetWindowInfo["ID"] "] @performWindowTask: Finished operations")
         return
     }
-    activeInfo := getWindowInfo(activeWindow)
+    ; User is not active on the target window, try to activate the window
+    activeWindowInfo := getWindowInfo(activeWindow)
     oldActiveWindow := getWindow(
-        activeInfo,
+        activeWindowInfo,
         targetWindow
     )
-    isTargetActivateSuccess := false
-    ; Target window is not active, try to activate it then perform the task after that.
+    isWindowActivateSucess := false
     try
     {
-        ; Activates the target window if there is no active window or the Desktop is focused.
+        ; User is not on any active window / User is active on the Desktop
         ; Bringing the Desktop window to the front can cause some scaling issues, so we ignore it.
         ; The Desktop's window has a class of "WorkerW" or "Progman"
-        if (!activeInfo.Count || (activeInfo["CLS"] = "WorkerW" || activeInfo["CLS"] = "Progman"))
+        if (!activeWindowInfo.Count || (activeWindowInfo["CLS"] = "WorkerW" || activeWindowInfo["CLS"] = "Progman"))
         {
             WinSetTransparent(0, targetWindow)
-            isTargetActivateSuccess := activateWindow(targetWindow)
+            isWindowActivateSucess := activateWindow(targetWindow)
             invokeTask()
             WinMoveBottom(targetWindow)
             return
         }
-
-        OutputDebug("[" A_Now "] Active Window INFO : [CLS:" activeInfo["CLS"] "] [ID:" activeInfo["ID"] "] [PID:" activeInfo["PID"] "] [EXE:" activeInfo["EXE"] "[Window:" oldActiveWindow "]")
-        ; Issues:
-        ; When the user quickly switches between specified process' windows, the script might still poll and decrements one of their timer. The supposed behavior is to reset the polls
-        ; For CoreWindows, if these are the active windows. No other windows can be activated, the taskbar icons of the target windows will flash orange.
-        ; Not even #WinActivateForce directive can mitigate this issue, still finding a solution for this, i.e, Open the clock (Date and time information) in Windows 10, SearchApp.exe or Notifications / Action Center then wait for the window timers to perform their task.
-        ; Another different issue similar to this for example like notepad.exe, if you open another Window within the same process notepad.exe. The script prior to my changes is struggling to handle it. WinWaitActive gets stuck.
-        ; There are tooltips when you hover over Category buttons in wordpad.exe, those are also read as windows and get added as windows to the process windows list,
-        ; they are retained there indefinitely (those created window maps) which means they're unhandled once the process' window is closed by the user, those should be cleaned up dynamically.
-        ; Certain windows that appear within the same process like notepad.exe's "Save as" "Save" windows, once those are the active windows, the script is also unable to activate the main window properly.
-        ; The change I implemented was only creating 1 window map for a process, if there are more windows for a certain process, it doesn't create any more maps for them, it's only a temporary workaround.
-        ; There are also optimizations I implemented, like early continue and return clauses, and decluttering of variables and edge cases
-        ; Also there was a weird behavior on relaunching as admin. Debug console in VS Code refuses to work after the launch as admin UAC
-
-        ; https://www.autohotkey.com/docs/v2/FAQ.htm#uac
-        ; Solution: For this script to be able to activate other windows while active on a CoreWindow, "Run with UI Access" this script. Run as admin will not work as a solution.
-        ; Alt Tabbing is another solution.
-        if (activeInfo["CLS"] = "Windows.UI.Core.CoreWindow")
+        OutputDebug("[" A_Now "] Active Window INFO : [CLS:" activeWindowInfo["CLS"] "] [ID:" activeWindowInfo["ID"] "] [PID:" activeWindowInfo["PID"] "] [EXE:" activeWindowInfo["EXE"] "[Window:" oldActiveWindow "]")
+        ; User is active on Action center / Date and time information / Start Menu / Searchapp.exe, alt+tab the user out from those Windows as a workaround
+        if (activeWindowInfo["CLS"] = "Windows.UI.Core.CoreWindow")
         {
-            OutputDebug("[" A_Now "] [" activeInfo["EXE"] "] [Window ID: " activeInfo["ID"] "] Active Window is Windows.UI.Core.CoreWindow!")
+            OutputDebug("[" A_Now "] [" activeWindowInfo["EXE"] "] [Window ID: " activeWindowInfo["ID"] "] Active Window is Windows.UI.Core.CoreWindow!")
             ; Todo: Add a check here if the script is ran with ui access to bypass this work around.
             Send("{Alt Down}{Tab Up}{Tab Down}")
             Sleep(500)
@@ -194,26 +198,27 @@ performWindowTask(windowId, invokeTask, isInputBlock)
 
         blockUserInput("On", isInputBlock)
         WinSetTransparent(0, targetWindow)
-        isTargetActivateSuccess := activateWindow(targetWindow)
+        isWindowActivateSucess := activateWindow(targetWindow)
+        ; User is still the old active window after the target window activation attempt, cancel the task
         ; The active window at this point should be the target window, not the old one.
-        ; If it is still the old active window, cancel the task
-        if (WinActive(oldActiveWindow) || !isTargetActivateSuccess)
+        if (WinActive(oldActiveWindow) || !isWindowActivateSucess)
         {
-            OutputDebug("[" A_Now "] [" targetInfo["EXE"] "] [Window ID: " targetInfo["ID"] "] isOldWindow? " WinActive(oldActiveWindow) ? "Yes" : "No" ", isActivateSuccess? " isTargetActivateSuccess "")
-            OutputDebug("[" A_Now "] [" targetInfo["EXE"] "] [Window ID: " targetInfo["ID"] "] Inactive Target Window invokeTask() failed (canceled)")
+            OutputDebug("[" A_Now "] [" targetWindowInfo["EXE"] "] [Window ID: " targetWindowInfo["ID"] "] isOldWindow? " WinActive(oldActiveWindow) ? "Yes" : "No" ", isActivateSuccess? " isWindowActivateSucess "")
+            OutputDebug("[" A_Now "] [" targetWindowInfo["EXE"] "] [Window ID: " targetWindowInfo["ID"] "] Inactive Target Window invokeTask() failed (canceled)")
             WinSetTransparent("Off", targetWindow)
             return
         }
         invokeTask()
-        OutputDebug("[" A_Now "] [" targetInfo["EXE"] "] [Window ID: " targetInfo["ID"] "] Inactive Target Window task successful!")
+        OutputDebug("[" A_Now "] [" targetWindowInfo["EXE"] "] [Window ID: " targetWindowInfo["ID"] "] Inactive Target Window task successful!")
         ; There is a condition in the try clause above that checks if the target window is active already. If I move this in the finally clause,
-        ; it will bring the active target window to the bottom which isn't the intended behavior
+        ; it will also move the active target window to the bottom too which isn't the intended behavior
         WinMoveBottom(targetWindow)
     }
     finally
     {
-        ; These serve as fail saves. I don't want to put them in the try clause because if something goes wrong and gets stuck, the windows should operate fine at the end
-        ; and not get caught in the hang
+        ; These serve as fail saves. I don't want to put them in the try clause
+        ; because if something goes wrong and gets stuck,
+        ; the windows will operate fine at the end and not get caught in the hang
         if (WinGetTransparent(targetWindow) = 0)
         {
             WinSetTransparent("Off", targetWindow)
@@ -223,10 +228,11 @@ performWindowTask(windowId, invokeTask, isInputBlock)
             activateWindow(oldActiveWindow)
         }
         blockUserInput("Off", isInputBlock)
-        OutputDebug("[" A_Now "] [" targetInfo["EXE"] "] [Window ID: " targetInfo["ID"] "] @performWindowTask#finally: Finished operations")
+        OutputDebug("[" A_Now "] [" targetWindowInfo["EXE"] "] [Window ID: " targetWindowInfo["ID"] "] @performWindowTask#finally: Finished operations")
     }
 }
 
+; A simple wrapper for BlockInput
 blockUserInput(option, isInputBlock)
 {
     if (!isInputBlock || !A_IsAdmin)
@@ -237,10 +243,6 @@ blockUserInput(option, isInputBlock)
     BlockInput(option)
 }
 
-; Fetch the window which best matches the given criteria.
-; Some windows are ephemeral and will be closed after user input. In this case we try
-; increasingly vague identifiers until we find a related window. If a window is still
-; not found a fallback is used instead.
 getWindow(windowInfo, fallbackWindow)
 {
     if (windowInfo.Count < 1)
@@ -268,7 +270,6 @@ getWindow(windowInfo, fallbackWindow)
     return fallbackWindow
 }
 
-; Get information about a window so that it can be found and reactivated later.
 getWindowInfo(window)
 {
     windowInfo := Map()
@@ -295,7 +296,7 @@ activateWindow(window)
         OutputDebug("[" A_Now "] [" window "] Failed to activate! Window does not exist! ")
         return false
     }
-    if (!isTargetableWindow(WinExist(window)))
+    if (!isWindowTargetable(WinExist(window)))
     {
         OutputDebug("[" A_Now "] [" window "] Failed to activate! Window is not targetable!")
         return false
@@ -318,7 +319,7 @@ getTotalPolls(minutes)
 }
 
 ; Find and return a specific attribute for a program, prioritising values in PROCESS_OVERRIDES.
-; If an override has not been setup for that process, the default value for all programs will be used instead.
+; If an override has not been setup for that process, the default value from the configuration for all programs will be used instead.
 getAttributeValue(attributeName, process_name)
 {
     monitorOverrides := config["MONITOR_OVERRIDES"]
@@ -336,16 +337,16 @@ updateSystemTray(processes)
 {
     monitoredWindows := states["MonitoredWindows"]
     managedWindows := states["ManagedWindows"]
-    ; Initialize counts for each process
     for process_name, process in processes
     {
         windows := process["windows"]
+        ; Only iterate when there are windows for this process
         if (windows.Count > 0)
         {
             monitoredWindows[process_name] := 0
             managedWindows[process_name] := 0
-            ; Iterate over the windows of the process
-            ; Count managed and monitored windows
+            ; For every window in this process' windows map
+            ; Count how many of those are are managed and monitored
             for , window in windows
             {
                 windowStatus := window["status"]
@@ -359,7 +360,8 @@ updateSystemTray(processes)
                 }
             }
 
-            ; Remove entries with zero windows
+            ; No windows were found to have the conditioned statuses
+            ; Remove this process entry from the monitored and managed windows
             if (monitoredWindows[process_name] = 0)
             {
                 monitoredWindows.Delete(process_name)
@@ -371,12 +373,11 @@ updateSystemTray(processes)
         }
     }
 
-    ; Determine the appropriate icon and tooltip
-    ; Managing windows
+    ; There are managed windows
     if (managedWindows.Count > 0)
     {
         iconNumber := 2
-        ; Managing and Monitoring
+        ; There are also monitored windows
         if (monitoredWindows.Count > 0)
         {
             tooltipText := "Managing:`n"
@@ -393,7 +394,7 @@ updateSystemTray(processes)
 
             tooltipText := RTrim(tooltipText, "`n")
         }
-        ; Managing only
+        ; There are only managed windows
         else
         {
             tooltipText := "Managing:`n"
@@ -405,7 +406,7 @@ updateSystemTray(processes)
             tooltipText := RTrim(tooltipText, "`n")
         }
     }
-    ; Monitoring only
+    ; There are only monitored windows
     else if (monitoredWindows.Count > 0)
     {
         iconNumber := 3
@@ -417,7 +418,7 @@ updateSystemTray(processes)
 
         tooltipText := RTrim(tooltipText, "`n")
     }
-    ; Neither managing nor monitoring
+    ; Neither managed nor monitored windows were found
     else
     {
         iconNumber := 5
@@ -435,24 +436,28 @@ updateSystemTray(processes)
     if (tooltipText != states["lastIconTooltipText"])
     {
         A_IconTip := tooltipText
-        states["lastIconTooltip"] := tooltipText
+        states["lastIconTooltipText"] := tooltipText
     }
 }
 
 registerWindowIds(windows, windowIds, process_name)
 {
+    ; All windows for the process have been closed, return the windows map as empty in that case
     if (windowIds.Length < 1)
     {
         return windows
     }
     pollsLeft := getTotalPolls(getAttributeValue("WINDOW_TIMEOUT", process_name))
+    ; For every window id found under the process, set a window map for that process' windows map
+    ; only if it meets certain conditions
     for , windowId in windowIds
     {
-        if (!isTargetableWindow(WinExist("ahk_id " windowId)))
+        ; If this window is not targetable, do not set a map for this window id
+        if (!isWindowTargetable(WinExist("ahk_id " windowId)))
         {
-            ; OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Ignored window for process as it cannot be targeted!")
             continue
         }
+        ; If this window id already exists in the windows map, do not reset a map for it
         if (windows.Has(windowId))
         {
             continue
@@ -464,34 +469,32 @@ registerWindowIds(windows, windowIds, process_name)
         )
         OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Created window for process")
     }
+    ; After setting all windows that have met the conditions, return the populated windows map
     return windows
 }
 
 ; Checks if a window is targetable
 ; tysm! https://stackoverflow.com/questions/35971452/what-is-the-right-way-to-send-alt-tab-in-ahk/36008086#36008086
-; It is missing ignoring windows that are like Save and Save as
-isTargetableWindow(HWND)
+; Helps filtering out the windows the script should not interact with
+isWindowTargetable(HWND)
 {
     ; https://www.autohotkey.com/docs/v2/misc/Styles.htm
     windowStyle := WinGetStyle("ahk_id " HWND)
     ; Windows with the WS_POPUP style (0x80000000)
     if (windowStyle & 0x80000000)
     {
-        ; OutputDebug("[" A_Now "] " HWND " is not targetable due to 0x80000000")
         return false
     }
     ; Windows with the WS_DISABLED style (0x08000000)
     ; These windows are disabled and not interactive (grayed-out windows)
     if (windowStyle & 0x08000000)
     {
-        ; OutputDebug("[" A_Now "] " HWND " is not targetable due to 0x08000000")
         return false
     }
     ; Windows that do not have the WS_VISIBLE style (0x10000000)
     ; These are invisible windows, not suitable for interaction
     if (!windowStyle & 0x10000000)
     {
-        ; OutputDebug("[" A_Now "] " HWND " is not targetable due to 0x10000000")
         return false
     }
     windowExtendedStyle := WinGetExStyle("ahk_id " HWND)
@@ -500,7 +503,6 @@ isTargetableWindow(HWND)
     ; Tool windows are often small floating windows (like toolbars) and are usually not primary windows
     if (windowExtendedStyle & 0x00000080)
     {
-        ; OutputDebug("[" A_Now "] " HWND " is not targetable due to 0x00000080")
         return false
     }
     cls := WinGetClass("ahk_id " HWND)
@@ -508,7 +510,6 @@ isTargetableWindow(HWND)
     ; These are often Delphi or VCL-based windows, typically representing non-primary windows
     if (cls = "TApplication")
     {
-        ; OutputDebug("[" A_Now "] " HWND " is not targetable due to " cls "")
         return false
     }
     ; Common class for dialog boxes or dialog windows
@@ -517,7 +518,6 @@ isTargetableWindow(HWND)
     ; This class represents dialog boxes, such as 'Open' or 'Save As' dialogs
     if (cls = "#32770")
     {
-        ; OutputDebug("[" A_Now "] " HWND " is not targetable because it is a dialog window")
         return false
     }
     ; Windows with the class "ComboLBox"
@@ -525,11 +525,10 @@ isTargetableWindow(HWND)
     ; These are not standalone windows and are part of other UI elements
     if (cls = "ComboLBox")
     {
-        ; OutputDebug("[" A_Now "] " HWND " is not targetable because it is a dialog window")
         return false
     }
     ; Windows with the class "Windows.UI.Core.CoreWindow"
-    ; The action center, date and time info, searching feature of Windows' start menu all belongs to this class.
+    ; The action center, date and time info, start menu, and searchapp all belong on this class
     ; These should not be interacted by the script in any way
     if (cls = "Windows.UI.Core.CoreWindow")
     {
@@ -545,19 +544,23 @@ monitorWindows(windows, process_name)
     intervalTotalPolls := getTotalPolls(getAttributeValue("TASK_INTERVAL", process_name))
     invokeTask := getAttributeValue("TASK", process_name)
     isInputBlock := getAttributeValue("IS_INPUT_BLOCK", process_name)
+    ; For every window in this process
     for windowId, window in windows
     {
+        ; This window no longer exists, delete it from the windows map
         if (!WinExist("ahk_id " windowId))
         {
             OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Deleted window for process as it was closed by the user!")
             windows.Delete(windowId)
             continue
         }
+        ; The user is currently active on this window
         if (WinActive("ahk_id " windowId))
         {
+            ; User is not idling on this window, reset the polls
             if (A_TimeIdlePhysical < (windowTimeoutMinutes * 60000))
             {
-                OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: Activity detected! Polls reset!")
+                OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: Activity detected! Polls has been reset!")
                 window := Map(
                     "status", "MonitoringStatus",
                     "pollsLeft", windowTotalPolls
@@ -565,24 +568,32 @@ monitorWindows(windows, process_name)
                 windows[windowId] := window
                 continue
             }
+            ; User is now considered idling on this window, set the polls left as 1 for it to be decremented to 0 below.
+            ; After that, perform the task right away
             OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: Inactivity detected! Polling...")
             if (window["status"] = "MonitoringStatus")
             {
                 window["pollsLeft"] := 1
             }
         }
+        ; Decrement 1 in each poll
         window["pollsLeft"] -= 1
         OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Target Window: " window["pollsLeft"] " polls remaining")
+        ; No more polls remaining, time to do the task
         if (window["pollsLeft"] < 1)
         {
+            ; Reset the poll with the calculated total polls from TASK_INTERVAL instead of from WINDOWS_TIMEOUT
             window := Map(
                 "status", "ManagingStatus",
                 "pollsLeft", intervalTotalPolls
             )
+            ; Perform this window's task set by the user for this process
             performWindowTask(windowId, invokeTask, isInputBlock)
         }
+        ; Set the newly updated window map to the windows map for this process
         windows[windowId] := window
     }
+    ; End of operation here, nothing else to do.
 }
 
 monitorProcesses()
@@ -593,11 +604,14 @@ monitorProcesses()
         for process_name, process in processes
         {
             windows := registerWindowIds(process["windows"], WinGetList("ahk_exe " process_name), process_name)
+            ; Only monitor this process' windows that have met the conditions.
+            ; If we invert the windows.count and early continue, SetTimer would be ignored as well. Early continuing is ugly here. This is the better approach
+            ; We still want to monitor the processes, which is what the SetTimer is for.
             if (windows.Count > 0)
             {
                 monitorWindows(windows, process_name)
             }
-            ; Poll again according to what's configured as its interval
+            ; Monitor the processes again according to what's configured as its polling interval
             SetTimer(monitorProcesses, config["POLL_INTERVAL"] * 1000)
         }
     }
@@ -605,7 +619,7 @@ monitorProcesses()
 }
 
 requestElevation()
-; Do not include this function in the polling function. The maps should only be set once.
+; These maps should only be initialized and set once.
 createProcessesAndWindowsMap()
 ; Initiate the first poll
 monitorProcesses()
