@@ -189,7 +189,7 @@ performWindowTask(windowId, invokeTask, isInputBlock)
         if (WinActive(oldActiveWindow) || !isTargetActivateSuccess)
         {
             OutputDebug("[" A_Now "] [" targetInfo["EXE"] "] [Window ID: " targetInfo["ID"] "] isOldWindow? " WinActive(oldActiveWindow) ", isActivateSuccess? " isTargetActivateSuccess "")
-            OutputDebug("[" A_Now "] [" targetInfo["EXE"] "] [Window ID: " targetInfo["ID"] "] Inactive Target Window failed to invokeTask()")
+            OutputDebug("[" A_Now "] [" targetInfo["EXE"] "] [Window ID: " targetInfo["ID"] "] Inactive Target Window invokeTask() failed")
             WinSetTransparent("Off", targetWindow)
             return
         }
@@ -256,7 +256,7 @@ getWindowInfo(window)
 
     if (!WinExist(window))
     {
-        OutputDebug("[" A_Now "] [" window "] Window does not exist! Failed to get info!")
+        OutputDebug("[" A_Now "] [" window "] Failed to get info! Window does not exist! ")
         return windowInfo
     }
 
@@ -273,19 +273,19 @@ activateWindow(window)
 {
     if (!WinExist(window))
     {
-        OutputDebug("[" A_Now "] [" window "] Window does not exist! Failed to activate!")
+        OutputDebug("[" A_Now "] [" window "] Failed to activate! Window does not exist! ")
         return false
     }
     if (!isTargetableWindow(WinExist(window)))
     {
-        OutputDebug("[" A_Now "] [" window "] Window cannot be targeted! Failed to activate!")
+        OutputDebug("[" A_Now "] [" window "] Failed to activate! Window is not targetable!")
         return false
     }
     WinActivate(window)
     value := WinWaitActive(window, , 0.1)
     if (value = 0)
     {
-        OutputDebug("[" A_Now "] [" window "] Window timed out! Failed to activate!")
+        OutputDebug("[" A_Now "] [" window "] Failed to activate! Window timed out! ")
         return false
     }
     OutputDebug("[" A_Now "] [" window "] Window successfully activated!")
@@ -320,32 +320,35 @@ updateSystemTray(processes)
     ; Initialize counts for each process
     for process_name, process in processes
     {
-        monitoredWindows[process_name] := 0
-        managedWindows[process_name] := 0
-
-        ; Iterate over the windows of the process
-        ; Count managed and monitored windows
-        for , window in process["windows"]
+        windows := process["windows"]
+        if (windows.Count > 0)
         {
-            windowStatus := window["status"]
-            if (windowStatus = "MonitoringStatus")
+            monitoredWindows[process_name] := 0
+            managedWindows[process_name] := 0
+            ; Iterate over the windows of the process
+            ; Count managed and monitored windows
+            for , window in windows
             {
-                monitoredWindows[process_name] += 1
+                windowStatus := window["status"]
+                if (windowStatus = "MonitoringStatus")
+                {
+                    monitoredWindows[process_name] += 1
+                }
+                else if (windowStatus = "ManagingStatus")
+                {
+                    managedWindows[process_name] += 1
+                }
             }
-            else if (windowStatus = "ManagingStatus")
-            {
-                managedWindows[process_name] += 1
-            }
-        }
 
-        ; Remove entries with zero windows
-        if (monitoredWindows[process_name] = 0)
-        {
-            monitoredWindows.Delete(process_name)
-        }
-        if (managedWindows[process_name] = 0)
-        {
-            managedWindows.Delete(process_name)
+            ; Remove entries with zero windows
+            if (monitoredWindows[process_name] = 0)
+            {
+                monitoredWindows.Delete(process_name)
+            }
+            if (managedWindows[process_name] = 0)
+            {
+                managedWindows.Delete(process_name)
+            }
         }
     }
 
@@ -419,25 +422,18 @@ updateSystemTray(processes)
 
 registerWindowIds(windows, windowIds, process_name)
 {
-    if (!windowIds)
+    if (windowIds.Length < 1)
     {
         return windows
     }
     pollsLeft := getTotalPolls(getAttributeValue("WINDOW_TIMEOUT", process_name))
     for , windowId in windowIds
     {
-        ; Workaround for multiple windows on one process, skip creating windows that does not have anything to do with the main window
-        ; if (windows.Count >= 1)
-        ; {
-        ;     continue
-        ; }
-        ; This process' window is not targetable. Therefore, we ignore it
-        if (!isTargetableWindow(WinExist("ahk_id" windowId)))
+        if (!isTargetableWindow(WinExist("ahk_id " windowId)))
         {
             ; OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Ignored window for process as it cannot be targeted!")
             continue
         }
-        ; Process specified already has a map for this window id
         if (windows.Has(windowId))
         {
             continue
@@ -524,13 +520,13 @@ monitorWindows(windows, process_name)
     isInputBlock := getAttributeValue("IS_INPUT_BLOCK", process_name)
     for windowId, window in windows
     {
-        if (!WinExist("ahk_id" windowId))
+        if (!WinExist("ahk_id " windowId))
         {
             OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Deleted window for process as it was closed by the user!")
             windows.Delete(windowId)
             continue
         }
-        if (WinActive("ahk_id" windowId))
+        if (WinActive("ahk_id " windowId))
         {
             if (A_TimeIdlePhysical < (windowTimeoutMinutes * 60000))
             {
@@ -550,7 +546,7 @@ monitorWindows(windows, process_name)
         }
         window["pollsLeft"] -= 1
         OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Target Window: " window["pollsLeft"] " polls remaining")
-        if (window["pollsLeft"] <= 0)
+        if (window["pollsLeft"] < 1)
         {
             window := Map(
                 "status", "ManagingStatus",
@@ -569,7 +565,7 @@ monitorProcesses()
     {
         for process_name, process in processes
         {
-            windows := registerWindowIds(process["windows"], WinGetList("ahk_exe" process_name), process_name)
+            windows := registerWindowIds(process["windows"], WinGetList("ahk_exe " process_name), process_name)
             if (windows.Count > 0)
             {
                 monitorWindows(windows, process_name)
