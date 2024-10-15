@@ -147,19 +147,29 @@ performWindowTask(windowId, invokeTask, isInputBlock)
     }
     activeInfo := getWindowInfo(activeWindow)
     oldActiveWindow := getWindow(
-        activeInfo["ID"],
-        activeInfo["PID"],
-        activeInfo["EXE"],
+        activeInfo,
         targetWindow
     )
-    OutputDebug("[" A_Now "] Active Window INFO : [CLS:" activeInfo["CLS"] "] [ID:" activeInfo["ID"] "] [PID:" activeInfo["PID"] "] [EXE:" activeInfo["EXE"] "] [Window:" oldActiveWindow "]")
     isTargetActivateSuccess := false
     ; Target window is not active, try to activate it then perform the task after that.
     try
     {
+        ; Activates the target window if there is no active window or the Desktop is focused.
+        ; Bringing the Desktop window to the front can cause some scaling issues, so we ignore it.
+        ; The Desktop's window has a class of "WorkerW" or "Progman"
+        if (!activeInfo.Count || (activeInfo["CLS"] = "WorkerW" || activeInfo["CLS"] = "Progman"))
+        {
+            WinSetTransparent(0, targetWindow)
+            isTargetActivateSuccess := activateWindow(targetWindow)
+            invokeTask()
+            WinMoveBottom(targetWindow)
+            return
+        }
+
+        OutputDebug("[" A_Now "] Active Window INFO : [CLS:" activeInfo["CLS"] "] [ID:" activeInfo["ID"] "] [PID:" activeInfo["PID"] "] [EXE:" activeInfo["EXE"] "[Window:" oldActiveWindow "]")
         ; Issues:
         ; When the user quickly switches between specified process' windows, the script might still poll and decrements one of their timer. The supposed behavior is to reset the polls
-        ; For CoreWindows, if these are the active windows. No other windows can be activated, the taskbar icons will flash.
+        ; For CoreWindows, if these are the active windows. No other windows can be activated, the taskbar icons of the target windows will flash orange.
         ; Not even #WinActivateForce directive can mitigate this issue, still finding a solution for this, i.e, Open the clock (Date and time information) in Windows 10, SearchApp.exe or Notifications / Action Center then wait for the window timers to perform their task.
         ; Another different issue similar to this for example like notepad.exe, if you open another Window within the same process notepad.exe. The script prior to my changes is struggling to handle it. WinWaitActive gets stuck.
         ; There are tooltips when you hover over Category buttons in wordpad.exe, those are also read as windows and get added as windows to the process windows list,
@@ -169,18 +179,19 @@ performWindowTask(windowId, invokeTask, isInputBlock)
         ; There are also optimizations I implemented, like early continue and return clauses, and decluttering of variables and edge cases
         ; Also there was a weird behavior on relaunching as admin. Debug console in VS Code refuses to work after the launch as admin UAC
 
+        ; https://www.autohotkey.com/docs/v2/FAQ.htm#uac
+        ; Solution: For this script to be able to activate other windows while active on a CoreWindow, "Run with UI Access" this script. Run as admin will not work as a solution.
+        ; Alt Tabbing is another solution.
         if (activeInfo["CLS"] = "Windows.UI.Core.CoreWindow")
         {
             OutputDebug("[" A_Now "] [" activeInfo["EXE"] "] [Window ID: " activeInfo["ID"] "] Active Window is Windows.UI.Core.CoreWindow!")
+            ; Todo: Add a check here if the script is ran with ui access to bypass this work around.
+            Send("{Alt Down}{Tab Up}{Tab Down}")
+            Sleep(500)
+            Send("{Alt Up}")
+            MsgBox("For the script to perform its task to the target window properly, the script has Alt+Tabbed you out from the active window with a class name of Windows.UI.Core.CoreWindow", , "OK Icon!")
         }
-        ; Activates the target window if there is no active window or the Desktop is focused.
-        ; Bringing the Desktop window to the front can cause some scaling issues, so we ignore it.
-        ; The Desktop's window has a class of "WorkerW" or "Progman"
-        if (!activeInfo.Count || (activeInfo["CLS"] = "WorkerW" || activeInfo["CLS"] = "Progman"))
-        {
-            OutputDebug("[" A_Now "] [" activeInfo["EXE"] "] [Window ID: " activeInfo["ID"] "] Active Window is Desktop! Force activating target window...")
-            isTargetActivateSuccess := activateWindow(targetWindow)
-        }
+
         blockUserInput("On", isInputBlock)
         WinSetTransparent(0, targetWindow)
         isTargetActivateSuccess := activateWindow(targetWindow)
@@ -188,8 +199,8 @@ performWindowTask(windowId, invokeTask, isInputBlock)
         ; If it is still the old active window, cancel the task
         if (WinActive(oldActiveWindow) || !isTargetActivateSuccess)
         {
-            OutputDebug("[" A_Now "] [" targetInfo["EXE"] "] [Window ID: " targetInfo["ID"] "] isOldWindow? " WinActive(oldActiveWindow) ", isActivateSuccess? " isTargetActivateSuccess "")
-            OutputDebug("[" A_Now "] [" targetInfo["EXE"] "] [Window ID: " targetInfo["ID"] "] Inactive Target Window invokeTask() failed")
+            OutputDebug("[" A_Now "] [" targetInfo["EXE"] "] [Window ID: " targetInfo["ID"] "] isOldWindow? " WinActive(oldActiveWindow) ? "Yes" : "No" ", isActivateSuccess? " isTargetActivateSuccess "")
+            OutputDebug("[" A_Now "] [" targetInfo["EXE"] "] [Window ID: " targetInfo["ID"] "] Inactive Target Window invokeTask() failed (canceled)")
             WinSetTransparent("Off", targetWindow)
             return
         }
@@ -230,21 +241,29 @@ blockUserInput(option, isInputBlock)
 ; Some windows are ephemeral and will be closed after user input. In this case we try
 ; increasingly vague identifiers until we find a related window. If a window is still
 ; not found a fallback is used instead.
-getWindow(window_ID, process_ID, process_name, fallbackWindow)
+getWindow(windowInfo, fallbackWindow)
 {
-    if (WinExist("ahk_id " window_ID))
+    if (windowInfo.Count < 1)
     {
-        return "ahk_id " window_ID
+        return fallbackWindow
+    }
+    windowId := "ahk_id " windowInfo["ID"]
+    process_id := "ahk_pid " windowInfo["PID"]
+    process_name := "ahk_exe " windowInfo["EXE"]
+
+    if (WinExist(windowId))
+    {
+        return windowId
     }
 
-    if (WinExist("ahk_pid " process_ID))
+    if (WinExist(process_id))
     {
-        return "ahk_pid " process_ID
+        return process_id
     }
 
-    if (WinExist("ahk_exe " process_name))
+    if (WinExist(process_name))
     {
-        return "ahk_exe " process_name
+        return process_name
     }
     return fallbackWindow
 }
@@ -282,7 +301,7 @@ activateWindow(window)
         return false
     }
     WinActivate(window)
-    value := WinWaitActive(window, , 0.1)
+    value := WinWaitActive(window)
     if (value = 0)
     {
         OutputDebug("[" A_Now "] [" window "] Failed to activate! Window timed out! ")
@@ -477,6 +496,7 @@ isTargetableWindow(HWND)
     }
     windowExtendedStyle := WinGetExStyle("ahk_id " HWND)
     ; Windows with WS_EX_TOOLWINDOW (0x00000080)
+    ; https://learn.microsoft.com/en-us/windows/win32/winmsg/extended-window-styles
     ; Tool windows are often small floating windows (like toolbars) and are usually not primary windows
     if (windowExtendedStyle & 0x00000080)
     {
@@ -506,6 +526,13 @@ isTargetableWindow(HWND)
     if (cls = "ComboLBox")
     {
         ; OutputDebug("[" A_Now "] " HWND " is not targetable because it is a dialog window")
+        return false
+    }
+    ; Windows with the class "Windows.UI.Core.CoreWindow"
+    ; The action center, date and time info, searching feature of Windows' start menu all belongs to this class.
+    ; These should not be interacted by the script in any way
+    if (cls = "Windows.UI.Core.CoreWindow")
+    {
         return false
     }
     return true
