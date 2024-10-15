@@ -27,10 +27,11 @@ global config := Map()
 ;   how much time is left before exisiting windows become inactve.
 config["POLL_INTERVAL"] := 1
 
-; WINDOW_TIMEOUT (Minutes):
-;   This is the amount of time before a window is considered inactive. After
-;   a window has timed out, Anti-AFK will start resetting any AFK timers.
-config["WINDOW_TIMEOUT"] := 10
+; ACTIVE_WINDOW_TIMEOUT (Milliseconds):
+;   The amount of time the user is deemed idle in a window they are active on.
+;   Once the user is found to be idle for more than this time, the window's task will be performed right away.
+;   If the user is still inactive in that same active window, it will use the time set in the TASK_INTERVAL instead.
+config["ACTIVE_WINDOW_TIMEOUT_MS"] := 5000
 
 ; TASK (Function):
 ;   This is a function that will be ran by the script in order to reset any
@@ -42,8 +43,8 @@ config["TASK"] := () => (
     Send("{Space Up}"))
 
 ; TASK_INTERVAL (Minutes):
-;   This is the amount of time the script will wait after calling the TASK function
-;   before calling it again.
+;   Amount of time the window is deemed inactive, once the window is inactive for more than this time,
+;   the window will perform its task and repeat.
 config["TASK_INTERVAL"] := 10
 
 ; IS_INPUT_BLOCK (Boolean):
@@ -59,8 +60,7 @@ config["IS_INPUT_BLOCK"] := false
 config["MONITOR_LIST"] := [
     "RobloxPlayerBeta.exe",
     "notepad.exe",
-    "wordpad.exe"
-]
+    "wordpad.exe"]
 
 ; PROCESS_OVERRIDES (Associative Array):
 ;   This allows you to specify specific values of WINDOW_TIMEOUT, TASK_INTERVAL,
@@ -70,14 +70,14 @@ config["MONITOR_LIST"] := [
 config["MONITOR_OVERRIDES"] := Map(
     "wordpad.exe", Map(
         "overrides", Map(
-            "WINDOW_TIMEOUT", 0.18,
+            "ACTIVE_WINDOW_TIMEOUT_MS", 5000,
             "TASK_INTERVAL", 0.18,
             "IS_INPUT_BLOCK", false,
             "TASK", () => (
                 Send("1")))),
     "notepad.exe", Map(
         "overrides", Map(
-            "WINDOW_TIMEOUT", 0.18,
+            "ACTIVE_WINDOW_TIMEOUT_MS", 5000,
             "TASK_INTERVAL", 0.18,
             "IS_INPUT_BLOCK", false,
             "TASK", () => (
@@ -155,8 +155,7 @@ registerProcesses(processes, monitorlist)
         }
         ; In this processes map, set a map for this process name and also with an empty windows map
         processes[process_name] := Map(
-            "windows", Map()
-        )
+            "windows", Map())
         OutputDebug("[" A_Now "] [" process_name "] Created process map for process")
     }
     ; After setting the processes that have met the conditions, return the populated processes map
@@ -173,6 +172,8 @@ performWindowTask(windowId, invokeTask, isInputBlock)
     ; User is already active on the target window, perform the task right away
     if (WinActive(targetWindow))
     {
+        ; Activate the window again just to make sure
+        isWindowActivateSucess := activateWindow(targetWindow)
         invokeTask()
         OutputDebug("[" A_Now "] [" targetWindowInfo["EXE"] "] [Window ID: " targetWindowInfo["ID"] "] Active Target Window task successful!")
         OutputDebug("[" A_Now "] [" targetWindowInfo["EXE"] "] [Window ID: " targetWindowInfo["ID"] "] @performWindowTask: Finished operations")
@@ -472,7 +473,7 @@ registerWindowIds(windows, process_name)
     {
         return windows
     }
-    pollsLeft := getTotalPolls(getAttributeValue("WINDOW_TIMEOUT", process_name))
+    pollsLeft := getTotalPolls(getAttributeValue("TASK_INTERVAL", process_name))
     ; For every window id found under the process, set a window map for that process' windows map
     ; only if it meets certain conditions
     for , windowId in windowIds
@@ -564,8 +565,6 @@ isWindowTargetable(HWND)
 
 monitorWindows(windows, process_name)
 {
-    windowTimeoutMinutes := getAttributeValue("WINDOW_TIMEOUT", process_name)
-    windowTotalPolls := getTotalPolls(windowTimeoutMinutes)
     intervalTotalPolls := getTotalPolls(getAttributeValue("TASK_INTERVAL", process_name))
     invokeTask := getAttributeValue("TASK", process_name)
     isInputBlock := getAttributeValue("IS_INPUT_BLOCK", process_name)
@@ -582,24 +581,30 @@ monitorWindows(windows, process_name)
         ; The user is currently active on this window
         if (WinActive("ahk_id " windowId))
         {
-            ; User is not idling on this window, reset the polls
-            if (A_TimeIdlePhysical < (windowTimeoutMinutes * 60000))
+            ; User is being inactive for more than the configured ACTIVE_WINDOW_TIMEOUT,
+            ; set the polls left as 1 for it to be decremented to 0 below,
+            ; then its task will be performed right away
+            if (A_TimeIdlePhysical >= config["ACTIVE_WINDOW_TIMEOUT_MS"])
             {
+
+                OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: Inactivity detected! Polling...")
+                if (window["status"] = "MonitoringStatus")
+                {
+                    window["pollsLeft"] := 1
+                }
+            }
+            else
+            {
+                ; User is not idling on this window, reset the polls
                 OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: Activity detected! Polls has been reset!")
                 window := Map(
                     "status", "MonitoringStatus",
-                    "pollsLeft", windowTotalPolls
+                    "pollsLeft", intervalTotalPolls
                 )
                 windows[windowId] := window
                 continue
             }
-            ; User is now considered idling on this window, set the polls left as 1 for it to be decremented to 0 below.
-            ; After that, perform the task right away
-            OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: Inactivity detected! Polling...")
-            if (window["status"] = "MonitoringStatus")
-            {
-                window["pollsLeft"] := 1
-            }
+
         }
         ; Decrement 1 in each poll
         window["pollsLeft"] -= 1
