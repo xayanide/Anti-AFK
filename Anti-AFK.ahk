@@ -411,7 +411,7 @@ updateSystemTray(processes)
     ; Update the tray icon only if it has changed
     if (iconNumber != states["lastIconNumber"])
     {
-        TraySetIcon(A_AhkPath, states["lastIconNumber"])
+        TraySetIcon(A_AhkPath, iconNumber)
         states["lastIconNumber"] := iconNumber
     }
 
