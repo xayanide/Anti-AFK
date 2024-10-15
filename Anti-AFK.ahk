@@ -21,8 +21,7 @@ config["WINDOW_TIMEOUT"] := 10
 config["TASK"] := () => (
     Send("{Space Down}")
     Sleep(1)
-    Send("{Space Up}")
-)
+    Send("{Space Up}"))
 
 ; TASK_INTERVAL (Minutes):
 ;   This is the amount of time the script will wait after calling the TASK function
@@ -42,8 +41,7 @@ config["IS_INPUT_BLOCK"] := false
 config["MONITOR_LIST"] := [
     "RobloxPlayerBeta.exe",
     "notepad.exe",
-    "wordpad.exe"
-]
+    "wordpad.exe"]
 
 ; PROCESS_OVERRIDES (Associative Array):
 ;   This allows you to specify specific values of WINDOW_TIMEOUT, TASK_INTERVAL,
@@ -57,21 +55,14 @@ config["MONITOR_OVERRIDES"] := Map(
             "TASK_INTERVAL", 1,
             "IS_INPUT_BLOCK", false,
             "TASK", () => (
-                Send("1")
-            )
-        )
-    ),
+                Send("1")))),
     "notepad.exe", Map(
         "overrides", Map(
             "WINDOW_TIMEOUT", 1,
             "TASK_INTERVAL", 1,
             "IS_INPUT_BLOCK", false,
             "TASK", () => (
-                Send("1")
-            )
-        )
-    )
-)
+                Send("1")))))
 
 ; --------------------
 ; Script
@@ -507,12 +498,10 @@ monitorProcesses()
         for process_name, process in processes
         {
             windows := registerWindowIds(process["windows"], WinGetList("ahk_exe" process_name), process_name)
-            if (windows.Count <= 0)
+            if (windows.Count > 0)
             {
-                continue
+                monitorWindows(windows, process_name)
             }
-            monitorWindows(windows, process_name)
-
             ; Poll again according to what's configured as its interval
             SetTimer(monitorProcesses, config["POLL_INTERVAL"] * 1000)
         }
