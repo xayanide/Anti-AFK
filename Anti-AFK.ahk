@@ -636,7 +636,7 @@ monitorProcesses()
                 continue
             }
             windows := registerWindowIds(process["windows"], process_name)
-            ; User does not have any windows open for this process, do not monitor the window
+            ; User does not have any windows open for this process, do not monitor this process' windows
             if (windows.Count < 1)
             {
                 continue
