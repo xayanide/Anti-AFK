@@ -139,10 +139,9 @@ requestElevation()
     )
 }
 
-registerProcesses()
+registerProcesses(processes, monitorlist)
 {
-    processes := states["Processes"]
-    for , process_name in config["MONITOR_LIST"]
+    for , process_name in monitorlist
     {
         ; User does not have this process active from the monitor list, do not set
         if (!ProcessExist(process_name))
@@ -622,7 +621,7 @@ monitorWindows(windows, process_name)
 
 monitorProcesses()
 {
-    processes := registerProcesses()
+    processes := registerProcesses(states["Processes"], config["MONITOR_LIST"])
     if (processes.Count > 0)
     {
         for process_name, process in processes
