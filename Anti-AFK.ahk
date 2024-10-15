@@ -6,13 +6,13 @@
 
 ; Issues:
 ; When the user quickly switches between specified process' windows, the script might still poll and decrements one of their timer. The supposed behavior is to reset the polls
-; For CoreWindows, if these are the active windows. No other windows can be activated, the taskbar icons of the target windows will flash orange.
+; PARTIALLY FIXED: For CoreWindows, if these are the active windows. No other windows can be activated, the taskbar icons of the target windows will flash orange.
 ; Not even #WinActivateForce directive can mitigate this issue, still finding a solution for this, i.e, Open the clock (Date and time information) in Windows 10, SearchApp.exe or Notifications / Action Center then wait for the window timers to perform their task.
-; Another different issue similar to this for example like notepad.exe, if you open another Window within the same process notepad.exe. The script prior to my changes is struggling to handle it. WinWaitActive gets stuck.
-; There are tooltips when you hover over Category buttons in wordpad.exe, those are also read as windows and get added as windows to the process windows list,
+; FIXED: Another different issue similar to this for example like notepad.exe, if you open another Window within the same process notepad.exe. The script prior to my changes is struggling to handle it. WinWaitActive gets stuck.
+; FIXED: There are tooltips when you hover over Category buttons in wordpad.exe, those are also read as windows and get added as windows to the process windows list,
 ; they are retained there indefinitely (those created window maps) which means they're unhandled once the process' window is closed by the user, those should be cleaned up dynamically.
-; Certain windows that appear within the same process like notepad.exe's "Save as" "Save" windows, once those are the active windows, the script is also unable to activate the main window properly.
-; The change I implemented was only creating 1 window map for a process, if there are more windows for a certain process, it doesn't create any more maps for them, it's only a temporary workaround.
+; FIXED: Certain windows that appear within the same process like notepad.exe's "Save as" "Save" windows, once those are the active windows, the script is also unable to activate the main window properly.
+; WORKAROUND REMOVED: The change I implemented was only creating 1 window map for a process, if there are more windows for a certain process, it doesn't create any more maps for them, it's only a temporary workaround.
 ; There are also optimizations I implemented, like early continue and return clauses, and decluttering of variables and edge cases
 ; Also there was a weird behavior on relaunching as admin. Debug console in VS Code refuses to work after the launch as admin UAC
 
