@@ -87,7 +87,9 @@ KeyHistory(0)
 global states := Map(
     "Processes", Map(),
     "MonitoredWindows", Map(),
-    "ManagedWindows", Map()
+    "ManagedWindows", Map(),
+    "lastIconNumber", 0,
+    "lastIconTooltipText", ""
 )
 
 requestElevation()
@@ -319,18 +321,21 @@ getAttributeValue(attributeName, process_name)
 
 updateSystemTray(processes)
 {
-    ; Count managed and monitored windows
     monitoredWindows := states["MonitoredWindows"]
     managedWindows := states["ManagedWindows"]
+    ; Initialize counts for each process
     for process_name, process in processes
     {
         monitoredWindows[process_name] := 0
         managedWindows[process_name] := 0
+
+        ; Iterate over the windows of the process
+        ; Count managed and monitored windows
         for , window in process["windows"]
         {
             windowStatus := window["status"]
             if (windowStatus = "MonitoringStatus")
-            {
+                {
                 monitoredWindows[process_name] += 1
             }
             else if (windowStatus = "ManagingStatus")
@@ -339,69 +344,83 @@ updateSystemTray(processes)
             }
         }
 
+        ; Remove entries with zero windows
         if (monitoredWindows[process_name] = 0)
         {
             monitoredWindows.Delete(process_name)
         }
-
         if (managedWindows[process_name] = 0)
         {
             managedWindows.Delete(process_name)
         }
     }
 
+    ; Determine the appropriate icon and tooltip
     ; Managing windows
-    if (managedWindows.Count > 0)
+    if (managedWindows.Count > 0) 
     {
-        TraySetIcon(A_AhkPath, 2)
-        ; Managing windows and monitoring windows
-        if (monitoredWindows.Count > 0)
+        iconNumber := 2
+        ; Managing and Monitoring
+        if (monitoredWindows.Count > 0)  
         {
-            newTip := "Managing:`n"
+            tooltipText := "Managing:`n"
             for process_name, windowsCount in managedWindows
             {
-                newTip := newTip process_name " - " windowsCount "`n"
+                tooltipText .= process_name " - " windowsCount "`n"
             }
-            newTip := newTip "`nMonitoring:`n"
-
+            
+            tooltipText .= "`nMonitoring:`n"
             for process_name, windowsCount in monitoredWindows
             {
-                newTip := newTip process_name " - " windowsCount "`n"
+                tooltipText .= process_name " - " windowsCount "`n"
             }
-            newTip := RTrim(newTip, "`n")
-            A_IconTip := newTip
-            return
+
+            tooltipText := RTrim(tooltipText, "`n")
         }
         ; Managing only
-        newTip := "Managing:`n"
-        for process_name, windowsCount in managedWindows
+        else  
         {
-            newTip := newTip process_name " - " windowsCount "`n"
+            tooltipText := "Managing:`n"
+            for process_name, windowsCount in managedWindows
+            {
+                tooltipText .= process_name " - " windowsCount "`n"
+            }
+
+            tooltipText := RTrim(tooltipText, "`n")
         }
-
-        newTip := RTrim(newTip, "`n")
-        A_IconTip := newTip
-        return
     }
-
-    ; Only monitoring windows
-    if (monitoredWindows.Count > 0)
+    ; Monitoring only
+    else if (monitoredWindows.Count > 0)  
     {
-        TraySetIcon(A_AhkPath, 3)
-
-        newTip := "Monitoring:`n"
+        iconNumber := 3
+        tooltipText := "Monitoring:`n"
         for process_name, windowsCount in monitoredWindows
         {
-            newTip := newTip process_name " - " windowsCount "`n"
+            tooltipText .= process_name " - " windowsCount "`n"
         }
-        newTip := RTrim(newTip, "`n")
-        A_IconTip := newTip
-        return
+
+        tooltipText := RTrim(tooltipText, "`n")
+    }
+    ; Neither managing nor monitoring
+    else  
+    {
+        iconNumber := 5
+        tooltipText := "No windows found"
     }
 
-    ; Not monitoring nor managing windows
-    TraySetIcon(A_AhkPath, 5)
-    A_IconTip := "No windows found"
+    ; Update the tray icon only if it has changed
+    if (iconNumber != states["lastIconNumber"])
+    {
+        TraySetIcon(A_AhkPath, states["lastIconNumber"])
+        states["lastIconNumber"] := iconNumber  
+    }
+
+    ; Update the tooltip only if it has changed
+    if (tooltipText != states["lastIconTooltipText"])
+    {
+        A_IconTip := tooltipText
+        states["lastIconTooltip"] := tooltipText 
+    }
 }
 
 registerWindowIds(windows, windowIds, process_name)
