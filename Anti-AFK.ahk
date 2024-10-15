@@ -7,27 +7,28 @@ global config := Map()
 ; POLL_INTERVAL (Seconds):
 ;   This is the interval which Anti-AFK checks for new windows and calculates
 ;   how much time is left before exisiting windows become inactve.
-config["POLL_INTERVAL"] := 1
+config["POLL_INTERVAL"] := 5
 
 ; WINDOW_TIMEOUT (Minutes):
 ;   This is the amount of time before a window is considered inactive. After
 ;   a window has timed out, Anti-AFK will start resetting any AFK timers.
-config["WINDOW_TIMEOUT"] := 0.18
+config["WINDOW_TIMEOUT"] := 10
 
 ; TASK (Function):
 ;   This is a function that will be ran by the script in order to reset any
 ;   AFK timers. The target window will have focus while it is being executed.
 ;   You can customise this function freely - just make sure it resets the timer.
 config["TASK"] := () => (
-    ; Send("{Space Down}")
-    ; Sleep(1)
-    ; Send("{Space Up}")
-    Send("w"))
+    Send("{Space Down}")
+    Sleep(1)
+    Send("{Space Up}")
+    ; Send("w")
+)
 
 ; TASK_INTERVAL (Minutes):
 ;   This is the amount of time the script will wait after calling the TASK function
 ;   before calling it again.
-config["TASK_INTERVAL"] := 0.18
+config["TASK_INTERVAL"] := 10
 
 ; IS_INPUT_BLOCK (Boolean):
 ;   This tells the script whether you want to block input whilst it shuffles
@@ -40,6 +41,7 @@ config["IS_INPUT_BLOCK"] := false
 ;   This is a list of processes that Anti-AFK will montior. Any windows that do
 ;   not belong to any of these processes will be ignored.
 config["MONITOR_LIST"] := [
+    "RobloxPlayerBeta.exe",
     "notepad.exe",
     "wordpad.exe"
 ]
@@ -56,7 +58,11 @@ config["MONITOR_OVERRIDES"] := Map(
             "TASK_INTERVAL", 1,
             "IS_INPUT_BLOCK", false,
             "TASK", () => (
-                Send("1")))))
+                Send("1")
+            )
+        )
+    )
+)
 
 ; --------------------
 ; Script
@@ -125,7 +131,7 @@ createProcessesAndWindowsMap()
 performWindowTask(windowId, invokeTask, isInputBlock)
 {
     activeWindow := "A"
-    targetInfo := retrieveWindowInfo("ahk_id " windowId)
+    targetInfo := getWindowInfo("ahk_id " windowId)
     OutputDebug("[" A_Now "] [" targetInfo["EXE"] "] [Window ID: " targetInfo["ID"] "] @performWindowTask: Starting task ")
     targetWindow := "ahk_id " targetInfo["ID"]
     OutputDebug("[" A_Now "] Target Window INFO : [CLS:" targetInfo["CLS"] "] [ID:" targetInfo["ID"] "] [PID:" targetInfo["PID"] "] [EXE:" targetInfo["EXE"] "] [Window:" targetWindow "]")
@@ -137,7 +143,7 @@ performWindowTask(windowId, invokeTask, isInputBlock)
         OutputDebug("[" A_Now "] [" targetInfo["EXE"] "] [Window ID: " targetInfo["ID"] "] @performWindowTask: Finished task")
         return
     }
-    activeInfo := retrieveWindowInfo(activeWindow)
+    activeInfo := getWindowInfo(activeWindow)
     oldActiveWindow := getWindow(
         activeInfo["ID"],
         activeInfo["PID"],
@@ -247,14 +253,14 @@ getWindow(window_ID, process_ID, process_name, fallbackWindow)
     return fallbackWindow
 }
 
-; Retrieve information about a window so that it can be found and reactivated later.
-retrieveWindowInfo(window)
+; Get information about a window so that it can be found and reactivated later.
+getWindowInfo(window)
 {
     windowInfo := Map()
 
     if (!WinExist(window))
     {
-        OutputDebug("[" A_Now "] [" window "] Window does not exist! Failed to retrieve info!")
+        OutputDebug("[" A_Now "] [" window "] Window does not exist! Failed to get info!")
         return windowInfo
     }
 
@@ -286,7 +292,7 @@ activateWindow(window)
 }
 
 ; Calculate the number of polls it will take for the time (in seconds) to pass.
-retrieveRemainingPolls(minutes)
+getTotalPolls(minutes)
 {
     return Max(1, Round(minutes * 60 / config.Get("POLL_INTERVAL")))
 }
@@ -401,7 +407,7 @@ registerWindowIds(windows, windowIds, process_name)
     {
         return windows
     }
-    pollsLeft := retrieveRemainingPolls(getAttributeValue("WINDOW_TIMEOUT", process_name))
+    pollsLeft := getTotalPolls(getAttributeValue("WINDOW_TIMEOUT", process_name))
     for , windowId in windowIds
     {
         ; Workaround for multiple windows on one process, skip creating windows that does not have anything to do with the main window
@@ -414,7 +420,7 @@ registerWindowIds(windows, windowIds, process_name)
         {
             continue
         }
-        ; In this process' window, create a map for this window id
+        ; In this process' windows map, set a map for this window id
         windows.Set(
             windowId, Map(
                 "status", "MonitoringStatus",
@@ -425,18 +431,18 @@ registerWindowIds(windows, windowIds, process_name)
     return windows
 }
 
-pollWindows(windows, process_name)
+monitorWindows(windows, process_name)
 {
     windowTimeoutMinutes := getAttributeValue("WINDOW_TIMEOUT", process_name)
-    monitorPollsLeft := retrieveRemainingPolls(windowTimeoutMinutes)
-    managingPollsLeft := retrieveRemainingPolls(getAttributeValue("TASK_INTERVAL", process_name))
-    taskAction := getAttributeValue("TASK", process_name)
+    windowTotalPolls := getTotalPolls(windowTimeoutMinutes)
+    intervalTotalPolls := getTotalPolls(getAttributeValue("TASK_INTERVAL", process_name))
+    invokeTask := getAttributeValue("TASK", process_name)
     isInputBlock := getAttributeValue("IS_INPUT_BLOCK", process_name)
     for windowId, window in windows
     {
         if (!WinExist("ahk_id" windowId))
         {
-            OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Deleted window for process as it no longer exists!")
+            OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Deleted window for process as it was closed by the user!")
             windows.Delete(windowId)
             continue
         }
@@ -444,35 +450,35 @@ pollWindows(windows, process_name)
         {
             if (A_TimeIdlePhysical < (windowTimeoutMinutes * 60000))
             {
-                OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: Activity detected!")
+                OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: Activity detected! Polls reset!")
                 window := Map(
                     "status", "MonitoringStatus",
-                    "pollsLeft", monitorPollsLeft
+                    "pollsLeft", windowTotalPolls
                 )
                 windows.Set(windowId, window)
                 continue
             }
-            OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: Inactivity detected!")
-            if (window["status"] = "MonitoringStatus")
+            OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: Inactivity detected! Polling...")
+            if (window.Get("Status") = "MonitoringStatus")
             {
-                window["pollsLeft"] = 1
+                window["pollsLeft"] := 1
             }
         }
         window["pollsLeft"] -= 1
-        OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Target Window: " window["pollsLeft"] " polls remaining ")
-        if (window["pollsLeft"] <= 0)
+        OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Target Window: " window["pollsLeft"] " polls remaining")
+        if (window.get("pollsLeft") <= 0)
         {
             window := Map(
                 "status", "ManagingStatus",
-                "pollsLeft", managingPollsLeft
+                "pollsLeft", intervalTotalPolls
             )
-            performWindowTask(windowId, taskAction, isInputBlock)
+            performWindowTask(windowId, invokeTask, isInputBlock)
         }
         windows.Set(windowId, window)
     }
 }
 
-pollProcesses()
+monitorProcesses()
 {
     processes := states.Get("Processes")
     if (processes.Count > 0)
@@ -484,17 +490,17 @@ pollProcesses()
             {
                 continue
             }
-            pollWindows(windows, process_name)
+            monitorWindows(windows, process_name)
 
             ; Poll again according to what's configured as its interval
-            SetTimer(pollProcesses, config.Get("POLL_INTERVAL") * 1000)
+            SetTimer(monitorProcesses, config.Get("POLL_INTERVAL") * 1000)
         }
     }
     updateSystemTray(processes)
 }
 
 requestElevation()
-; We do not want to include this function in the poll. The maps should only be set once.
+; Do not include this function in the polling function. The maps should only be set once.
 createProcessesAndWindowsMap()
 ; Initiate the first poll
-pollProcesses()
+monitorProcesses()
