@@ -7,7 +7,7 @@ global config := Map()
 ; POLL_INTERVAL (Seconds):
 ;   This is the interval which Anti-AFK checks for new windows and calculates
 ;   how much time is left before exisiting windows become inactve.
-config["POLL_INTERVAL"] := 5
+config["POLL_INTERVAL"] := 1
 
 ; WINDOW_TIMEOUT (Minutes):
 ;   This is the amount of time before a window is considered inactive. After
@@ -51,15 +51,15 @@ config["MONITOR_LIST"] := [
 config["MONITOR_OVERRIDES"] := Map(
     "wordpad.exe", Map(
         "overrides", Map(
-            "WINDOW_TIMEOUT", 1,
-            "TASK_INTERVAL", 1,
+            "WINDOW_TIMEOUT", 0.18,
+            "TASK_INTERVAL", 0.18,
             "IS_INPUT_BLOCK", false,
             "TASK", () => (
                 Send("1")))),
     "notepad.exe", Map(
         "overrides", Map(
-            "WINDOW_TIMEOUT", 1,
-            "TASK_INTERVAL", 1,
+            "WINDOW_TIMEOUT", 0.18,
+            "TASK_INTERVAL", 0.18,
             "IS_INPUT_BLOCK", false,
             "TASK", () => (
                 Send("1")))))
@@ -302,9 +302,9 @@ getAttributeValue(attributeName, process_name)
     monitorOverrides := config["MONITOR_OVERRIDES"]
     if (monitorOverrides.Has(process_name))
     {
-        if (monitorOverrides[process_name].Has(attributeName))
+        if (monitorOverrides[process_name]["overrides"].Has(attributeName))
         {
-            return monitorOverrides[process_name][attributeName]
+            return monitorOverrides[process_name]["overrides"][attributeName]
         }
     }
     return config[attributeName]
