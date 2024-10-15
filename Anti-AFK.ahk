@@ -335,7 +335,7 @@ updateSystemTray(processes)
         {
             windowStatus := window["status"]
             if (windowStatus = "MonitoringStatus")
-                {
+            {
                 monitoredWindows[process_name] += 1
             }
             else if (windowStatus = "ManagingStatus")
@@ -357,18 +357,18 @@ updateSystemTray(processes)
 
     ; Determine the appropriate icon and tooltip
     ; Managing windows
-    if (managedWindows.Count > 0) 
+    if (managedWindows.Count > 0)
     {
         iconNumber := 2
         ; Managing and Monitoring
-        if (monitoredWindows.Count > 0)  
+        if (monitoredWindows.Count > 0)
         {
             tooltipText := "Managing:`n"
             for process_name, windowsCount in managedWindows
             {
                 tooltipText .= process_name " - " windowsCount "`n"
             }
-            
+
             tooltipText .= "`nMonitoring:`n"
             for process_name, windowsCount in monitoredWindows
             {
@@ -378,7 +378,7 @@ updateSystemTray(processes)
             tooltipText := RTrim(tooltipText, "`n")
         }
         ; Managing only
-        else  
+        else
         {
             tooltipText := "Managing:`n"
             for process_name, windowsCount in managedWindows
@@ -390,7 +390,7 @@ updateSystemTray(processes)
         }
     }
     ; Monitoring only
-    else if (monitoredWindows.Count > 0)  
+    else if (monitoredWindows.Count > 0)
     {
         iconNumber := 3
         tooltipText := "Monitoring:`n"
@@ -402,7 +402,7 @@ updateSystemTray(processes)
         tooltipText := RTrim(tooltipText, "`n")
     }
     ; Neither managing nor monitoring
-    else  
+    else
     {
         iconNumber := 5
         tooltipText := "No windows found"
@@ -412,14 +412,14 @@ updateSystemTray(processes)
     if (iconNumber != states["lastIconNumber"])
     {
         TraySetIcon(A_AhkPath, states["lastIconNumber"])
-        states["lastIconNumber"] := iconNumber  
+        states["lastIconNumber"] := iconNumber
     }
 
     ; Update the tooltip only if it has changed
     if (tooltipText != states["lastIconTooltipText"])
     {
         A_IconTip := tooltipText
-        states["lastIconTooltip"] := tooltipText 
+        states["lastIconTooltip"] := tooltipText
     }
 }
 
