@@ -139,14 +139,27 @@ requestElevation()
     )
 }
 
-createProcessesAndWindowsMap()
+registerProcesses()
 {
+    processes := states["Processes"]
     for , process_name in config["MONITOR_LIST"]
     {
-        states["Processes"][process_name] := Map(
+        ; This process already has a map, do not set
+        if (processes.has(process_name))
+            continue
+        ; User does not have this process active from the monitor list, do not set
+        if (!ProcessExist(process_name))
+        {
+            continue
+        }
+        ; In this processes map, set a map for this process name and also with an empty windows map
+        processes[process_name] := Map(
             "windows", Map()
         )
+        OutputDebug("[" A_Now "] [" process_name "] Created process map for process")
     }
+    ; After setting the processes that have met the conditions, return the populated processes map
+    return processes
 }
 
 performWindowTask(windowId, invokeTask, isInputBlock)
@@ -337,40 +350,48 @@ updateSystemTray(processes)
 {
     monitoredWindows := states["MonitoredWindows"]
     managedWindows := states["ManagedWindows"]
-    for process_name, process in processes
+    ; Only iterate when there are processes
+    if (processes.Count > 0)
     {
-        windows := process["windows"]
-        ; Only iterate when there are windows for this process
-        if (windows.Count > 0)
+        for process_name, process in processes
         {
-            monitoredWindows[process_name] := 0
-            managedWindows[process_name] := 0
-            ; For every window in this process' windows map
-            ; Count how many of those are are managed and monitored
-            for , window in windows
+            windows := process["windows"]
+            ; Only iterate when there are windows for this process
+            if (windows.Count > 0)
             {
-                windowStatus := window["status"]
-                if (windowStatus = "MonitoringStatus")
+                monitoredWindows[process_name] := 0
+                managedWindows[process_name] := 0
+                ; For every window in this process' windows map
+                ; Count how many of those are are managed and monitored
+                for , window in windows
                 {
-                    monitoredWindows[process_name] += 1
+                    windowStatus := window["status"]
+                    if (windowStatus = "MonitoringStatus")
+                    {
+                        monitoredWindows[process_name] += 1
+                    }
+                    else if (windowStatus = "ManagingStatus")
+                    {
+                        managedWindows[process_name] += 1
+                    }
                 }
-                else if (windowStatus = "ManagingStatus")
-                {
-                    managedWindows[process_name] += 1
-                }
-            }
 
-            ; No windows were found to have the conditioned statuses
-            ; Remove this process entry from the monitored and managed windows
-            if (monitoredWindows[process_name] = 0)
-            {
-                monitoredWindows.Delete(process_name)
-            }
-            if (managedWindows[process_name] = 0)
-            {
-                managedWindows.Delete(process_name)
+                ; No windows were found to have the conditioned statuses
+                ; Remove this process entry from the monitored and managed windows
+                if (monitoredWindows[process_name] = 0)
+                {
+                    monitoredWindows.Delete(process_name)
+                }
+                if (managedWindows[process_name] = 0)
+                {
+                    managedWindows.Delete(process_name)
+                }
             }
         }
+    } else {
+        ; No processes are active on the user, clear all the counters
+        monitoredWindows.Clear()
+        managedWindows.Clear()
     }
 
     ; There are managed windows
@@ -598,11 +619,18 @@ monitorWindows(windows, process_name)
 
 monitorProcesses()
 {
-    processes := states["Processes"]
+    processes := registerProcesses()
     if (processes.Count > 0)
     {
         for process_name, process in processes
         {
+            ; This process no longer exists, delete it from the processes map
+            if (!ProcessExist(process_name))
+            {
+                OutputDebug("[" A_Now "] [" process_name "] Deleted process map for process as it was closed by the user!")
+                processes.Delete(process_name)
+                continue
+            }
             windows := registerWindowIds(process["windows"], WinGetList("ahk_exe " process_name), process_name)
             ; Only monitor this process' windows that have met the conditions.
             ; If we invert the windows.count and early continue, SetTimer would be ignored as well. Early continuing is ugly here. This is the better approach
@@ -611,15 +639,13 @@ monitorProcesses()
             {
                 monitorWindows(windows, process_name)
             }
-            ; Monitor the processes again according to what's configured as its polling interval
-            SetTimer(monitorProcesses, config["POLL_INTERVAL"] * 1000)
         }
     }
     updateSystemTray(processes)
+    ; Monitor the processes again according to what's configured as its polling interval
+    SetTimer(monitorProcesses, config["POLL_INTERVAL"] * 1000)
 }
 
 requestElevation()
-; These maps should only be initialized and set once.
-createProcessesAndWindowsMap()
 ; Initiate the first poll
 monitorProcesses()
