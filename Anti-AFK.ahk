@@ -134,15 +134,15 @@ performWindowTask(windowId, invokeTask, isInputBlock)
 {
     activeWindow := "A"
     targetInfo := getWindowInfo("ahk_id " windowId)
-    OutputDebug("[" A_Now "] [" targetInfo["EXE"] "] [Window ID: " targetInfo["ID"] "] @performWindowTask: Starting task ")
+    OutputDebug("[" A_Now "] [" targetInfo["EXE"] "] [Window ID: " targetInfo["ID"] "] @performWindowTask: Starting operations...")
     targetWindow := "ahk_id " targetInfo["ID"]
     OutputDebug("[" A_Now "] Target Window INFO : [CLS:" targetInfo["CLS"] "] [ID:" targetInfo["ID"] "] [PID:" targetInfo["PID"] "] [EXE:" targetInfo["EXE"] "] [Window:" targetWindow "]")
     ; Perform the task directly if the target window is already active.
     if (WinActive(targetWindow))
     {
         invokeTask()
-        OutputDebug("[" A_Now "] [" targetInfo["EXE"] "] [Window ID: " targetInfo["ID"] "] Active Target Window successfully performed its task!")
-        OutputDebug("[" A_Now "] [" targetInfo["EXE"] "] [Window ID: " targetInfo["ID"] "] @performWindowTask: Finished task")
+        OutputDebug("[" A_Now "] [" targetInfo["EXE"] "] [Window ID: " targetInfo["ID"] "] Active Target Window task successful!")
+        OutputDebug("[" A_Now "] [" targetInfo["EXE"] "] [Window ID: " targetInfo["ID"] "] @performWindowTask: Finished operations")
         return
     }
     activeInfo := getWindowInfo(activeWindow)
@@ -172,7 +172,6 @@ performWindowTask(windowId, invokeTask, isInputBlock)
         if (activeInfo["CLS"] = "Windows.UI.Core.CoreWindow")
         {
             OutputDebug("[" A_Now "] [" activeInfo["EXE"] "] [Window ID: " activeInfo["ID"] "] Active Window is Windows.UI.Core.CoreWindow!")
-            Send("{Alt Down}{Tab Down}{Tab Up}{Alt Up}")
         }
         ; Activates the target window if there is no active window or the Desktop is focused.
         ; Bringing the Desktop window to the front can cause some scaling issues, so we ignore it.
@@ -183,19 +182,19 @@ performWindowTask(windowId, invokeTask, isInputBlock)
             isTargetActivateSuccess := activateWindow(targetWindow)
         }
         blockUserInput("On", isInputBlock)
-        OutputDebug("[" A_Now "] [" targetInfo["EXE"] "] [Window ID: " targetInfo["ID"] "] Inactive Target Window setting transparency to 0...")
         WinSetTransparent(0, targetWindow)
         isTargetActivateSuccess := activateWindow(targetWindow)
         ; The active window at this point should be the target window, not the old one.
         ; If it is still the old active window, cancel the task
         if (WinActive(oldActiveWindow) || !isTargetActivateSuccess)
         {
-            OutputDebug("[" A_Now "] [" targetInfo["EXE"] "] [Window ID: " targetInfo["ID"] "] Inactive Target Window failed to perform its task as user is still on old window or the window failed to activate!")
+            OutputDebug("[" A_Now "] [" targetInfo["EXE"] "] [Window ID: " targetInfo["ID"] "] isOldWindow? " WinActive(oldActiveWindow) ", isActivateSuccess? " isTargetActivateSuccess "")
+            OutputDebug("[" A_Now "] [" targetInfo["EXE"] "] [Window ID: " targetInfo["ID"] "] Inactive Target Window failed to invokeTask()")
             WinSetTransparent("Off", targetWindow)
             return
         }
         invokeTask()
-        OutputDebug("[" A_Now "] [" targetInfo["EXE"] "] [Window ID: " targetInfo["ID"] "] Inactive Target Window successfully performed its task!")
+        OutputDebug("[" A_Now "] [" targetInfo["EXE"] "] [Window ID: " targetInfo["ID"] "] Inactive Target Window task successful!")
         ; There is a condition in the try clause above that checks if the target window is active already. If I move this in the finally clause,
         ; it will bring the active target window to the bottom which isn't the intended behavior
         WinMoveBottom(targetWindow)
@@ -206,7 +205,6 @@ performWindowTask(windowId, invokeTask, isInputBlock)
         ; and not get caught in the hang
         if (WinGetTransparent(targetWindow) = 0)
         {
-            OutputDebug("[" A_Now "] [" targetInfo["EXE"] "] [Window ID: " targetInfo["ID"] "] Inactive Target Window setting transparency to Off...")
             WinSetTransparent("Off", targetWindow)
         }
         if (!WinActive(oldActiveWindow))
@@ -214,7 +212,7 @@ performWindowTask(windowId, invokeTask, isInputBlock)
             activateWindow(oldActiveWindow)
         }
         blockUserInput("Off", isInputBlock)
-        OutputDebug("[" A_Now "] [" targetInfo["EXE"] "] [Window ID: " targetInfo["ID"] "] @performWindowTask: Finished task")
+        OutputDebug("[" A_Now "] [" targetInfo["EXE"] "] [Window ID: " targetInfo["ID"] "] @performWindowTask#finally: Finished operations")
     }
 }
 
@@ -276,6 +274,11 @@ activateWindow(window)
     if (!WinExist(window))
     {
         OutputDebug("[" A_Now "] [" window "] Window does not exist! Failed to activate!")
+        return false
+    }
+    if (!isTargetableWindow(WinExist(window)))
+    {
+        OutputDebug("[" A_Now "] [" window "] Window cannot be targeted! Failed to activate!")
         return false
     }
     WinActivate(window)
@@ -424,8 +427,14 @@ registerWindowIds(windows, windowIds, process_name)
     for , windowId in windowIds
     {
         ; Workaround for multiple windows on one process, skip creating windows that does not have anything to do with the main window
-        if (windows.Count >= 1)
+        ; if (windows.Count >= 1)
+        ; {
+        ;     continue
+        ; }
+        ; This process' window is not targetable. Therefore, we ignore it
+        if (!isTargetableWindow(WinExist("ahk_id" windowId)))
         {
+            ; OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Ignored window for process as it cannot be targeted!")
             continue
         }
         ; Process specified already has a map for this window id
@@ -441,6 +450,69 @@ registerWindowIds(windows, windowIds, process_name)
         OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Created window for process")
     }
     return windows
+}
+
+; Checks if a window is targetable
+; tysm! https://stackoverflow.com/questions/35971452/what-is-the-right-way-to-send-alt-tab-in-ahk/36008086#36008086
+; It is missing ignoring windows that are like Save and Save as
+isTargetableWindow(HWND)
+{
+    ; https://www.autohotkey.com/docs/v2/misc/Styles.htm
+    windowStyle := WinGetStyle("ahk_id " HWND)
+    ; Windows with the WS_POPUP style (0x80000000)
+    if (windowStyle & 0x80000000)
+    {
+        ; OutputDebug("[" A_Now "] " HWND " is not targetable due to 0x80000000")
+        return false
+    }
+    ; Windows with the WS_DISABLED style (0x08000000)
+    ; These windows are disabled and not interactive (grayed-out windows)
+    if (windowStyle & 0x08000000)
+    {
+        ; OutputDebug("[" A_Now "] " HWND " is not targetable due to 0x08000000")
+        return false
+    }
+    ; Windows that do not have the WS_VISIBLE style (0x10000000)
+    ; These are invisible windows, not suitable for interaction
+    if (!windowStyle & 0x10000000)
+    {
+        ; OutputDebug("[" A_Now "] " HWND " is not targetable due to 0x10000000")
+        return false
+    }
+    windowExtendedStyle := WinGetExStyle("ahk_id " HWND)
+    ; Windows with WS_EX_TOOLWINDOW (0x00000080)
+    ; Tool windows are often small floating windows (like toolbars) and are usually not primary windows
+    if (windowExtendedStyle & 0x00000080)
+    {
+        ; OutputDebug("[" A_Now "] " HWND " is not targetable due to 0x00000080")
+        return false
+    }
+    cls := WinGetClass("ahk_id " HWND)
+    ; Windows with the class "TApplication"
+    ; These are often Delphi or VCL-based windows, typically representing non-primary windows
+    if (cls = "TApplication")
+    {
+        ; OutputDebug("[" A_Now "] " HWND " is not targetable due to " cls "")
+        return false
+    }
+    ; Common class for dialog boxes or dialog windows
+    ; https://learn.microsoft.com/en-us/windows/win32/winmsg/about-window-classes
+    ; Windows with the class "#32770"
+    ; This class represents dialog boxes, such as 'Open' or 'Save As' dialogs
+    if (cls = "#32770")
+    {
+        ; OutputDebug("[" A_Now "] " HWND " is not targetable because it is a dialog window")
+        return false
+    }
+    ; Windows with the class "ComboLBox"
+    ; This class represents the dropdown list portion of a combo box
+    ; These are not standalone windows and are part of other UI elements
+    if (cls = "ComboLBox")
+    {
+        ; OutputDebug("[" A_Now "] " HWND " is not targetable because it is a dialog window")
+        return false
+    }
+    return true
 }
 
 monitorWindows(windows, process_name)
