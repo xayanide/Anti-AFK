@@ -22,7 +22,6 @@ config["TASK"] := () => (
     Send("{Space Down}")
     Sleep(1)
     Send("{Space Up}")
-    ; Send("w")
 )
 
 ; TASK_INTERVAL (Minutes):
@@ -61,6 +60,16 @@ config["MONITOR_OVERRIDES"] := Map(
                 Send("1")
             )
         )
+    ),
+    "notepad.exe", Map(
+        "overrides", Map(
+            "WINDOW_TIMEOUT", 1,
+            "TASK_INTERVAL", 1,
+            "IS_INPUT_BLOCK", false,
+            "TASK", () => (
+                Send("1")
+            )
+        )
     )
 )
 
@@ -78,7 +87,8 @@ KeyHistory(0)
 global states := Map(
     "Processes", Map(),
     "MonitoredWindows", Map(),
-    "ManagedWindows", Map())
+    "ManagedWindows", Map()
+)
 
 requestElevation()
 {
@@ -87,11 +97,11 @@ requestElevation()
     {
         return
     }
-    isAdminRequire := config.Get("IS_INPUT_BLOCK")
-    for , process in config.Get("MONITOR_OVERRIDES")
+    isAdminRequire := config["IS_INPUT_BLOCK"]
+    for , process in config["MONITOR_OVERRIDES"]
     {
-        overrides := process.Get("overrides")
-        if (overrides.Has("IS_INPUT_BLOCK") && overrides.Get("IS_INPUT_BLOCK"))
+        overrides := process["overrides"]
+        if (overrides.Has("IS_INPUT_BLOCK") && overrides["IS_INPUT_BLOCK"])
         {
             isAdminRequire := true
         }
@@ -120,11 +130,10 @@ requestElevation()
 
 createProcessesAndWindowsMap()
 {
-    processes := states.Get("Processes")
-    for , process_name in config.Get("MONITOR_LIST")
+    for , process_name in config["MONITOR_LIST"]
     {
-        processes.Set(process_name, Map(
-            "windows", Map()))
+        states["Processes"][process_name] := Map(
+            "windows", Map())
     }
 }
 
@@ -152,7 +161,7 @@ performWindowTask(windowId, invokeTask, isInputBlock)
     )
     OutputDebug("[" A_Now "] Active Window INFO : [CLS:" activeInfo["CLS"] "] [ID:" activeInfo["ID"] "] [PID:" activeInfo["PID"] "] [EXE:" activeInfo["EXE"] "] [Window:" oldActiveWindow "]")
     isTargetActivateSuccess := false
-    ; Target window is not active, we try activating it then perform the task
+    ; Target window is not active, try to activate it then perform the task after that.
     try
     {
         ; Issues:
@@ -197,10 +206,6 @@ performWindowTask(windowId, invokeTask, isInputBlock)
         ; There is a condition in the try clause above that checks if the target window is active already. If I move this in the finally clause,
         ; it will bring the active target window to the bottom which isn't the intended behavior
         WinMoveBottom(targetWindow)
-    }
-    catch as e
-    {
-        MsgBox("@performWindowTask: Encountered error:`n" e.Message "`n" e.Stack "", , "OK Icon!")
     }
     finally
     {
@@ -294,54 +299,52 @@ activateWindow(window)
 ; Calculate the number of polls it will take for the time (in seconds) to pass.
 getTotalPolls(minutes)
 {
-    return Max(1, Round(minutes * 60 / config.Get("POLL_INTERVAL")))
+    return Max(1, Round(minutes * 60 / config["POLL_INTERVAL"]))
 }
 
 ; Find and return a specific attribute for a program, prioritising values in PROCESS_OVERRIDES.
 ; If an override has not been setup for that process, the default value for all programs will be used instead.
 getAttributeValue(attributeName, process_name)
 {
-    monitorOverrides := config.Get("MONITOR_OVERRIDES")
-    overridenProcess := monitorOverrides.Get(process_name, false)
+    monitorOverrides := config["MONITOR_OVERRIDES"]
     if (monitorOverrides.Has(process_name))
     {
-        if (overridenProcess.Has(attributeName))
+        if (monitorOverrides[process_name].Has(attributeName))
         {
-            return overridenProcess.Get(attributeName)
+            return monitorOverrides[process_name][attributeName]
         }
     }
-    return config.Get(attributeName)
+    return config[attributeName]
 }
 
 updateSystemTray(processes)
 {
     ; Count managed and monitored windows
-    monitoredWindows := states.Get("MonitoredWindows")
-    managedWindows := states.Get("ManagedWindows")
+    monitoredWindows := states["MonitoredWindows"]
+    managedWindows := states["ManagedWindows"]
     for process_name, process in processes
     {
-        windows := process.Get("windows")
-        monitoredCount := monitoredWindows.Set(process_name, 0).Get(process_name)
-        managedCount := managedWindows.Set(process_name, 0).Get(process_name)
-        for , window in windows
+        monitoredWindows[process_name] := 0
+        managedWindows[process_name] := 0
+        for , window in process["windows"]
         {
-            windowStatus := window.Get("status")
+            windowStatus := window["status"]
             if (windowStatus = "MonitoringStatus")
             {
-                monitoredCount += 1
+                monitoredWindows[process_name] += 1
             }
             else if (windowStatus = "ManagingStatus")
             {
-                managedCount += 1
+                managedWindows[process_name] += 1
             }
         }
 
-        if (monitoredCount = 0)
+        if (monitoredWindows[process_name] = 0)
         {
             monitoredWindows.Delete(process_name)
         }
 
-        if (managedCount = 0)
+        if (managedWindows[process_name] = 0)
         {
             managedWindows.Delete(process_name)
         }
@@ -421,11 +424,10 @@ registerWindowIds(windows, windowIds, process_name)
             continue
         }
         ; In this process' windows map, set a map for this window id
-        windows.Set(
-            windowId, Map(
-                "status", "MonitoringStatus",
-                "pollsLeft", pollsLeft
-            ))
+        windows[windowId] := Map(
+            "status", "MonitoringStatus",
+            "pollsLeft", pollsLeft
+        )
         OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Created window for process")
     }
     return windows
@@ -455,18 +457,18 @@ monitorWindows(windows, process_name)
                     "status", "MonitoringStatus",
                     "pollsLeft", windowTotalPolls
                 )
-                windows.Set(windowId, window)
+                windows[windowId] := window
                 continue
             }
             OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: Inactivity detected! Polling...")
-            if (window.Get("Status") = "MonitoringStatus")
+            if (window["status"] = "MonitoringStatus")
             {
                 window["pollsLeft"] := 1
             }
         }
         window["pollsLeft"] -= 1
         OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Target Window: " window["pollsLeft"] " polls remaining")
-        if (window.get("pollsLeft") <= 0)
+        if (window["pollsLeft"] <= 0)
         {
             window := Map(
                 "status", "ManagingStatus",
@@ -474,18 +476,18 @@ monitorWindows(windows, process_name)
             )
             performWindowTask(windowId, invokeTask, isInputBlock)
         }
-        windows.Set(windowId, window)
+        windows[windowId] := window
     }
 }
 
 monitorProcesses()
 {
-    processes := states.Get("Processes")
+    processes := states["Processes"]
     if (processes.Count > 0)
     {
         for process_name, process in processes
         {
-            windows := registerWindowIds(process.Get("windows"), WinGetList("ahk_exe" process_name), process_name)
+            windows := registerWindowIds(process["windows"], WinGetList("ahk_exe" process_name), process_name)
             if (windows.Count <= 0)
             {
                 continue
@@ -493,7 +495,7 @@ monitorProcesses()
             monitorWindows(windows, process_name)
 
             ; Poll again according to what's configured as its interval
-            SetTimer(monitorProcesses, config.Get("POLL_INTERVAL") * 1000)
+            SetTimer(monitorProcesses, config["POLL_INTERVAL"] * 1000)
         }
     }
     updateSystemTray(processes)
