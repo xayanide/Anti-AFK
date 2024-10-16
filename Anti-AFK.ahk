@@ -5,7 +5,7 @@
 ; TODO:
 
 ; Issues:
-; When the user quickly switches between specified process' windows, the script might still poll and decrements one of their timer. The supposed behavior is to reset the polls
+; When the user quickly switches between specified process' windows, the script might still poll and decrements one of its timer. The supposed behavior is to reset the polls
 ; PARTIALLY FIXED: For CoreWindows, if these are the active windows. No other windows can be activated, the taskbar icons of the target windows will flash orange.
 ; Not even #WinActivateForce directive can mitigate this issue, still finding a solution for this, i.e, Open the clock (Date and time information) in Windows 10, SearchApp.exe or Notifications / Action Center then wait for the window timers to perform their task.
 ; FIXED: Another different issue similar to this for example like notepad.exe, if you open another Window within the same process notepad.exe. The script prior to my changes is struggling to handle it. WinWaitActive gets stuck.
@@ -22,17 +22,17 @@
 
 global config := Map()
 
-; POLL_INTERVAL (Milliseconds):
+; POLLING_RATE_MS (Milliseconds):
 ;   This is the interval which is how often this script monitors the processes, lower number means much faster
 ;   polling rate, but can tasking for the system
-config["POLL_INTERVAL"] := 5000
+config["POLLING_RATE_MS"] := 5000
 
 ; ACTIVE_WINDOW_TIMEOUT (Milliseconds):
 ;   The amount of time the user is deemed idle
 ;   in a window they were once interacting.
 ;   When the user is found to be idle for more than this time, the window's task will be performed right away.
 ;   If the user is still inactive in that same active window after the task, the time set in the TASK_INTERVAL will be used instead.
-config["ACTIVE_WINDOW_TIMEOUT_MS"] := 60000
+config["ACTIVE_WINDOW_TIMEOUT_MS"] := 120000
 
 ; TASK (Function):
 ;   This is a function that will be ran by the script in order to reset any
@@ -41,12 +41,13 @@ config["ACTIVE_WINDOW_TIMEOUT_MS"] := 60000
 config["TASK"] := () => (
     Send("{Space Down}")
     Sleep(1)
-    Send("{Space Up}"))
+    Send("{Space Up}")
+)
 
 ; TASK_INTERVAL (Milliseconds):
 ;   Once the window is seen inactive for more than this time,
 ;   the window will perform its task and repeat.
-config["TASK_INTERVAL_MS"] := 1
+config["TASK_INTERVAL_MS"] := 600000
 
 ; IS_INPUT_BLOCK (Boolean):
 ;   This tells the script whether you want to block input whilst it shuffles
@@ -61,7 +62,8 @@ config["IS_INPUT_BLOCK"] := false
 config["MONITOR_LIST"] := [
     "RobloxPlayerBeta.exea",
     "notepad.exe",
-    "wordpad.exe"]
+    "wordpad.exe"
+]
 
 ; PROCESS_OVERRIDES (Associative Array):
 ;   This allows you to specify specific values of ACTIVE_WINDOW_TIMEOUT_MS, TASK_INTERVAL,
@@ -71,18 +73,25 @@ config["MONITOR_LIST"] := [
 config["MONITOR_OVERRIDES"] := Map(
     "wordpad.exe", Map(
         "overrides", Map(
-            "ACTIVE_WINDOW_TIMEOUT_MS", 5000,
-            "TASK_INTERVAL_MS", 15000,
+            "ACTIVE_WINDOW_TIMEOUT_MS", 120000,
+            "TASK_INTERVAL_MS", 600000,
             "IS_INPUT_BLOCK", false,
             "TASK", () => (
-                Send("1")))),
+                Send("1")
+            )
+        )
+    ),
     "notepad.exe", Map(
         "overrides", Map(
-            "ACTIVE_WINDOW_TIMEOUT_MS", 5000,
-            "TASK_INTERVAL_MS", 15000,
+            "ACTIVE_WINDOW_TIMEOUT_MS", 120000,
+            "TASK_INTERVAL_MS", 600000,
             "IS_INPUT_BLOCK", false,
             "TASK", () => (
-                Send("1")))))
+                Send("1")
+            )
+        )
+    )
+)
 
 ; --------------------
 ; Script
@@ -94,6 +103,77 @@ config["MONITOR_OVERRIDES"] := Map(
 InstallKeybdHook()
 InstallMouseHook()
 KeyHistory(0)
+
+; Returns false if any config or override value is invalid, true if everything looks good
+validateConfigAndOverrides()
+{
+    invalidValuesMsg := ""
+    isConfigPass := true
+    isOverridePass := true
+
+    ; Check if POLLING_RATE_MS is less than or equal to 0
+    if (config["POLLING_RATE_MS"] <= 0)
+    {
+        MsgBox("ERROR: The configured polling rate is less than or equal to 0. The script will exit immediately.", , "OK Iconx")
+        ExitApp(1)
+    }
+
+    ; Validate the main configuration settings
+    if (config["POLLING_RATE_MS"] > config["TASK_INTERVAL_MS"])
+    {
+        invalidValuesMsg .= "[Config]`nPOLLING_RATE_MS (" config["POLLING_RATE_MS"] "ms) > TASK_INTERVAL_MS (" config["TASK_INTERVAL_MS"] "ms)`nPolling rate must be lower than this setting!`n`n"
+        isConfigPass := false
+    }
+    if (config["POLLING_RATE_MS"] > config["ACTIVE_WINDOW_TIMEOUT_MS"])
+    {
+        invalidValuesMsg .= "[Config]`nPOLLING_RATE_MS (" config["POLLING_RATE_MS"] "ms) > ACTIVE_WINDOW_TIMEOUT_MS (" config["ACTIVE_WINDOW_TIMEOUT_MS"] "ms)`nPolling rate must be lower than this setting!`n`n"
+        isConfigPass := false
+    }
+
+    ; Check if ACTIVE_WINDOW_TIMEOUT_MS or TASK_INTERVAL_MS are less than 3000 ms
+    if (config["ACTIVE_WINDOW_TIMEOUT_MS"] < 3000)
+    {
+        invalidValuesMsg .= "[Config]`nACTIVE_WINDOW_TIMEOUT_MS (" config["ACTIVE_WINDOW_TIMEOUT_MS"] "ms)`nMust be at least 3000ms! Because anything lower can be disruptive!`n`n"
+        isConfigPass := false
+    }
+    if (config["TASK_INTERVAL_MS"] < 3000)
+    {
+        invalidValuesMsg .= "[Config]`nTASK_INTERVAL_MS (" config["TASK_INTERVAL_MS"] "ms)`nMust be at least 3000ms! Because anything lower can be disruptive!`n`n"
+        isConfigPass := false
+    }
+
+    ; Validate monitor override settings
+    for , process in config["MONITOR_OVERRIDES"]
+    {
+        overrides := process["overrides"]
+        if (overrides.Has("TASK_INTERVAL_MS") && config["POLLING_RATE_MS"] > overrides["TASK_INTERVAL_MS"])
+        {
+            invalidValuesMsg .= "[Override of " process["name"] "]`nPOLLING_RATE_MS (" config["POLLING_RATE_MS"] "ms) > TASK_INTERVAL_MS (" overrides["TASK_INTERVAL_MS"] "ms)`nPolling rate must be lower than this override!`n`n"
+            isOverridePass := false
+        }
+        if (overrides.Has("ACTIVE_WINDOW_TIMEOUT_MS") && config["POLLING_RATE_MS"] > overrides["ACTIVE_WINDOW_TIMEOUT_MS"])
+        {
+            invalidValuesMsg .= "[Override of " process["name"] "]`nPOLLING_RATE_MS (" config["POLLING_RATE_MS"] "ms) > ACTIVE_WINDOW_TIMEOUT_MS (" overrides["ACTIVE_WINDOW_TIMEOUT_MS"] "ms)`nPolling rate must be lower than this override!`n"
+            isOverridePass := false
+        }
+
+        ; Stop further checks if any override is invalid
+        if (!isOverridePass)
+        {
+            break
+        }
+    }
+
+    ; If any validation fails, show the invalid values in the message box and exit the app
+    if (!isConfigPass || !isOverridePass)
+    {
+        MsgBox("ERROR: Invalid configuration detected, cannot launch script!`nFor the script to operate properly, please review and adjust the following values accordingly.`n`n" invalidValuesMsg "", , "OK Iconx")
+        ; Since this script is not that big, I don't want to make another condition for its returned values, exit right away instead
+        ExitApp(1)
+    }
+    ; If all conditions have passed
+    return true
+}
 
 global states := Map(
     "Processes", Map(),
@@ -330,7 +410,7 @@ activateWindow(window)
 ; Calculate the number of polls it will take for the time (in seconds) to pass.
 getTotalPolls(minutes)
 {
-    return Max(1, Round(minutes * 60 / config["POLL_INTERVAL"]))
+    return Max(1, Round(minutes * 60 / config["POLLING_RATE_MS"]))
 }
 
 ; Find and return a specific attribute for a program, prioritising values in PROCESS_OVERRIDES.
@@ -465,40 +545,6 @@ updateSystemTray(processes)
     }
 }
 
-registerWindowIds(windows, process_name)
-{
-    ; Retrieve all found unique window ids for this process
-    windowIds := WinGetList("ahk_exe " process_name)
-    ; There are no open windows for this process, return the windows map as empty in that case
-    if (windowIds.Length < 1)
-    {
-        return windows
-    }
-    ; For every window id found under the process, set a window map for that process' windows map
-    ; only if it meets certain conditions
-    for , windowId in windowIds
-    {
-        ; If this window is not targetable, do not set a map for this window id
-        if (!isWindowTargetable(WinExist("ahk_id " windowId)))
-        {
-            continue
-        }
-        ; If this window id already exists in the windows map, do not reset a map for it
-        if (windows.Has(windowId))
-        {
-            continue
-        }
-        ; In this process' windows map, set a map for this window id
-        windows[windowId] := Map(
-            "status", "MonitoringStatus",
-            "lastActivityTick", A_TickCount
-        )
-        OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Created window for process")
-    }
-    ; After setting all windows that have met the conditions, return the populated windows map
-    return windows
-}
-
 ; Checks if a window is targetable
 ; tysm! https://stackoverflow.com/questions/35971452/what-is-the-right-way-to-send-alt-tab-in-ahk/36008086#36008086
 ; Helps filtering out the windows the script should not interact with
@@ -563,6 +609,40 @@ isWindowTargetable(HWND)
     return true
 }
 
+registerWindowIds(windows, process_name)
+{
+    ; Retrieve all found unique window ids for this process
+    windowIds := WinGetList("ahk_exe " process_name)
+    ; There are no open windows for this process, return the windows map as empty in that case
+    if (windowIds.Length < 1)
+    {
+        return windows
+    }
+    ; For every window id found under the process, set a window map for that process' windows map
+    ; only if it meets certain conditions
+    for , windowId in windowIds
+    {
+        ; If this window is not targetable, do not set a map for this window id
+        if (!isWindowTargetable(WinExist("ahk_id " windowId)))
+        {
+            continue
+        }
+        ; If this window id already exists in the windows map, do not reset a map for it
+        if (windows.Has(windowId))
+        {
+            continue
+        }
+        ; In this process' windows map, set a map for this window id
+        windows[windowId] := Map(
+            "status", "MonitoringStatus",
+            "lastActivityTick", A_TickCount
+        )
+        OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Created window for process")
+    }
+    ; After setting all windows that have met the conditions, return the populated windows map
+    return windows
+}
+
 monitorWindows(windows, process_name)
 {
     taskIntervalMs := getAttributeValue("TASK_INTERVAL_MS", process_name)
@@ -583,43 +663,41 @@ monitorWindows(windows, process_name)
         ; The user is currently active on this window
         if (WinActive("ahk_id " windowId))
         {
-            ; User is being inactive for more than the configured ACTIVE_WINDOW_TIMEOUT,
-            ; set the polls left as 1 for it to be decremented to 0 below,
-            ; then its task will be performed right away
-            if (A_TimeIdlePhysical >= config["ACTIVE_WINDOW_TIMEOUT_MS"])
+
+            if (A_TimeIdlePhysical <= config["ACTIVE_WINDOW_TIMEOUT_MS"])
             {
-                OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: User is IDLE! Polling...")
-                if (window["status"] = "MonitoringStatus")
-                {
-                    window["lastActivityTick"] += (A_TickCount - window["lastActivityTick"])
-                }
-            }
-            else
-            {
-                ; This window's last activity tick is already reset, no need to set it again
-                if (window["lastActivityTick"] = A_TickCount)
+                ; User is not idling on this window, reset if needed
+                ; TODO: this condition is not consistent
+                if (elapsedInactivityTimeMs = 0)
                 {
                     continue
                 }
-                ; User is currently active on this window, reset its lastActivityTick
+                elapsedInactivityTimeMs := 0
                 windows[windowId] := Map(
                     "status", "MonitoringStatus",
                     "lastActivityTick", A_TickCount
                 )
-                OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: User is ACTIVE! Elapsed inactivity time has been reset!")
+                OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: User is ACTIVE! Elapsed inactivity time has been reset! " A_TimeIdlePhysical " / " config["ACTIVE_WINDOW_TIMEOUT_MS"] "!")
                 continue
             }
-
+            ; User is being inactive for more than the configured ACTIVE_WINDOW_TIMEOUT,
+            ; set the inactivity as the task interval for its task to be performed in the next poll
+            OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: User is IDLE in the window for " A_TimeIdlePhysical " / " config["ACTIVE_WINDOW_TIMEOUT_MS"] "!")
+            if (window["status"] = "MonitoringStatus")
+            {
+                elapsedInactivityTimeMs := taskIntervalMs
+            }
         }
 
         OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Window is detected inactive for: " elapsedInactivityTimeMs " ms / " taskIntervalMs " ms")
-        ; It is time to do the window's task
+        ; The inactivity exceeds the time for the task, it is now time to trigger the window's task
         if (elapsedInactivityTimeMs >= taskIntervalMs)
         {
             ; Perform this window's task set by the user for this process
             performWindowTask(windowId, invokeTask, isInputBlock)
             ; Once the task is done,
-            ; update window's status and reset this window's last activity tick 
+            ; update window's status and reset this window's last activity tick
+            elapsedInactivityTimeMs := 0
             window := Map(
                 "status", "ManagingStatus",
                 "lastActivityTick", A_TickCount
@@ -656,9 +734,10 @@ monitorProcesses()
     }
     updateSystemTray(processes)
     ; Monitor the processes again according to what's configured as its polling interval
-    SetTimer(monitorProcesses, config["POLL_INTERVAL"])
+    SetTimer(monitorProcesses, config["POLLING_RATE_MS"])
 }
 
+validateConfigAndOverrides()
 requestElevation()
 ; Initiate the first poll
 monitorProcesses()
