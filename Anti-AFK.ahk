@@ -22,16 +22,17 @@
 
 global config := Map()
 
-; POLL_INTERVAL (Seconds):
-;   This is the interval which Anti-AFK checks for new windows and calculates
-;   how much time is left before exisiting windows become inactve.
-config["POLL_INTERVAL"] := 1000
+; POLL_INTERVAL (Milliseconds):
+;   This is the interval which is how often this script monitors the processes, lower number means much faster
+;   polling rate, but can tasking for the system
+config["POLL_INTERVAL"] := 5000
 
 ; ACTIVE_WINDOW_TIMEOUT (Milliseconds):
-;   The amount of time the user is deemed idle in a window they are active on.
-;   Once the user is found to be idle for more than this time, the window's task will be performed right away.
-;   If the user is still inactive in that same active window, it will use the time set in the TASK_INTERVAL instead.
-config["ACTIVE_WINDOW_TIMEOUT_MS"] := 120000
+;   The amount of time the user is deemed idle
+;   in a window they were once interacting.
+;   When the user is found to be idle for more than this time, the window's task will be performed right away.
+;   If the user is still inactive in that same active window after the task, the time set in the TASK_INTERVAL will be used instead.
+config["ACTIVE_WINDOW_TIMEOUT_MS"] := 60000
 
 ; TASK (Function):
 ;   This is a function that will be ran by the script in order to reset any
@@ -42,10 +43,10 @@ config["TASK"] := () => (
     Sleep(1)
     Send("{Space Up}"))
 
-; TASK_INTERVAL (Minutes):
-;   Amount of time the window is deemed inactive, once the window is inactive for more than this time,
+; TASK_INTERVAL (Milliseconds):
+;   Once the window is seen inactive for more than this time,
 ;   the window will perform its task and repeat.
-config["TASK_INTERVAL"] := 10
+config["TASK_INTERVAL_MS"] := 1
 
 ; IS_INPUT_BLOCK (Boolean):
 ;   This tells the script whether you want to block input whilst it shuffles
@@ -58,12 +59,12 @@ config["IS_INPUT_BLOCK"] := false
 ;   This is a list of processes that Anti-AFK will montior. Any windows that do
 ;   not belong to any of these processes will be ignored.
 config["MONITOR_LIST"] := [
-    "RobloxPlayerBeta.exe",
+    "RobloxPlayerBeta.exea",
     "notepad.exe",
     "wordpad.exe"]
 
 ; PROCESS_OVERRIDES (Associative Array):
-;   This allows you to specify specific values of WINDOW_TIMEOUT, TASK_INTERVAL,
+;   This allows you to specify specific values of ACTIVE_WINDOW_TIMEOUT_MS, TASK_INTERVAL,
 ;   TASK and IS_INPUT_BLOCK for specific processes. This is helpful if different
 ;   games consider you AFK at wildly different times, or if the function to
 ;   reset the AFK timer does not work as well across different applications.
@@ -71,14 +72,14 @@ config["MONITOR_OVERRIDES"] := Map(
     "wordpad.exe", Map(
         "overrides", Map(
             "ACTIVE_WINDOW_TIMEOUT_MS", 5000,
-            "TASK_INTERVAL", 0.18,
+            "TASK_INTERVAL_MS", 15000,
             "IS_INPUT_BLOCK", false,
             "TASK", () => (
                 Send("1")))),
     "notepad.exe", Map(
         "overrides", Map(
             "ACTIVE_WINDOW_TIMEOUT_MS", 5000,
-            "TASK_INTERVAL", 0.18,
+            "TASK_INTERVAL_MS", 15000,
             "IS_INPUT_BLOCK", false,
             "TASK", () => (
                 Send("1")))))
@@ -490,7 +491,7 @@ registerWindowIds(windows, process_name)
         ; In this process' windows map, set a map for this window id
         windows[windowId] := Map(
             "status", "MonitoringStatus",
-            "lastExecutedTime", 0
+            "lastWindowActivityTick", A_TickCount
         )
         OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Created window for process")
     }
@@ -564,7 +565,7 @@ isWindowTargetable(HWND)
 
 monitorWindows(windows, process_name)
 {
-    intervalTotalMs := getAttributeValue("TASK_INTERVAL", process_name) * 60000
+    taskIntervalMs := getAttributeValue("TASK_INTERVAL_MS", process_name)
     invokeTask := getAttributeValue("TASK", process_name)
     isInputBlock := getAttributeValue("IS_INPUT_BLOCK", process_name)
     ; For every window in this process
@@ -577,6 +578,8 @@ monitorWindows(windows, process_name)
             windows.Delete(windowId)
             continue
         }
+        ; Calculate the time since the last window inactivity
+        elapsedInactivityTimeMs := A_TickCount - window["lastWindowActivityTick"]
         ; The user is currently active on this window
         if (WinActive("ahk_id " windowId))
         {
@@ -588,39 +591,39 @@ monitorWindows(windows, process_name)
                 OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: User is IDLE! Polling...")
                 if (window["status"] = "MonitoringStatus")
                 {
-                    window["elapsedTime"] += config["POLL_INTERVAL"]
+                    window["lastWindowActivityTick"] += (A_TickCount - window["lastWindowActivityTick"])
                 }
             }
             else
             {
-                ; This window's poll is already reset, no need to set it again
-                if (window["elapsedTime"] = 0)
+                ; This window's last activity tick is already reset, no need to set it again
+                if (window["lastWindowActivityTick"] = A_TickCount)
                 {
                     continue
                 }
-                ; User is not idling on this window, reset its polls
+                ; User is currently active on this window, reset its lastWindowActivityTick
                 windows[windowId] := Map(
                     "status", "MonitoringStatus",
-                    "elapsedTime", 0
+                    "lastWindowActivityTick", A_TickCount
                 )
-                OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: User is ACTIVE! Elapsed time has been reset!")
+                OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: User is ACTIVE! Elapsed inactivity time has been reset!")
                 continue
             }
 
         }
-        ; If the window is not active, still accumulate the polling interval
-        window["elapsedTime"] += config["POLL_INTERVAL"]
-        OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Target Window: " window["elapsedTime"] " ms / " intervalTotalMs " ms elapsed time")
-        ; Time to do the task
-        if (window["elapsedTime"] >= intervalTotalMs)
+
+        OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Window is detected inactive for: " elapsedInactivityTimeMs " ms / " taskIntervalMs " ms")
+        ; It is time to do the window's task
+        if (elapsedInactivityTimeMs >= taskIntervalMs)
         {
-            ; Reset the elapsed time
-            window := Map(
-                "status", "ManagingStatus",
-                "elapsedTime", 0
-            )
             ; Perform this window's task set by the user for this process
             performWindowTask(windowId, invokeTask, isInputBlock)
+            ; Once the task is done,
+            ; update window's status and reset this window's last activity tick 
+            window := Map(
+                "status", "ManagingStatus",
+                "lastWindowActivityTick", A_TickCount
+            )
         }
         ; Set the newly updated window map to the windows map for this process
         windows[windowId] := window
