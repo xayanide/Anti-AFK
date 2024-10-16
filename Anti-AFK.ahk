@@ -166,13 +166,12 @@ validateConfigAndOverrides()
     return true
 }
 
-global states := Map(
-    "Processes", Map(),
-    "MonitoredWindows", Map(),
-    "ManagedWindows", Map(),
-    "lastIconNumber", 0,
-    "lastIconTooltipText", ""
-)
+global states := Map()
+states["Processes"] := Map()
+states["MonitoredWindows"] := Map()
+states["ManagedWindows"] := Map()
+states["lastIconNumber"] := 0
+states["lastIconTooltipText"] := ""
 
 requestElevation()
 {
@@ -225,9 +224,10 @@ registerProcesses(processes, monitorlist)
         {
             continue
         }
-        ; In this processes map, set a map for this process name and also with an empty windows map
-        processes[process_name] := Map(
-            "windows", Map())
+        ; In this processes map, set a map for this process name
+        processes[process_name] := Map()
+        ; and also with an empty windows map
+        processes[process_name]["windows"] := Map()
         OutputDebug("[" A_Now "] [" process_name "] Created process map for process")
     }
     ; After setting the processes that have met the conditions, return the populated processes map
@@ -366,11 +366,10 @@ getWindowInfo(window)
         return windowInfo
     }
 
-    windowInfo := Map(
-        "ID", WinGetID(window),
-        "CLS", WinGetClass(window),
-        "PID", WinGetPID(window),
-        "EXE", WinGetProcessName(window))
+    windowInfo["ID"] := WinGetID(window)
+    windowInfo["CLS"] := WinGetClass(window)
+    windowInfo["PID"] := WinGetPID(window)
+    windowInfo["EXE"] := WinGetProcessName(window)
 
     return windowInfo
 }
@@ -624,11 +623,10 @@ registerWindowIds(windows, process_name)
             continue
         }
         ; In this process' windows map, set a map for this window id
-        windows[windowId] := Map(
-            "status", "MonitoringStatus",
-            "lastInactiveTick", A_TickCount,
-            "elapsedTime", 0
-        )
+        windows[windowId] := Map()
+        windows[windowId]["status"] := "MonitoringStatus"
+        windows[windowId]["lastInactiveTick"] := A_TickCount
+        windows[windowId]["elapsedTime"] := 0
         OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Created window for process")
     }
     ; After setting all windows that have met the conditions, return the populated windows map
@@ -658,7 +656,6 @@ monitorWindows(windows, process_name)
             ; User is NOT IDLING in this window
             if (A_TimeIdlePhysical <= activeWindowTimeoutMs)
             {
-                OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: User is NOT IDLE! Elapsed Window Inactivity: " window["elapsedTime"] "")
                 ; Do not reset the elapsed time if it's already reset
                 ; Only update the tickcount
                 if (window["elapsedTime"] = 0)
@@ -666,11 +663,9 @@ monitorWindows(windows, process_name)
                     window["lastInactiveTick"] := A_TickCount
                     continue
                 }
-                windows[windowId] := Map(
-                    "status", "MonitoringStatus",
-                    "lastInactiveTick", A_TickCount,
-                    "elapsedTime", 0
-                )
+                ; It is still MonitoringStatus at this point, use direct field assignment
+                window["lastInactiveTick"] := A_TickCount
+                window["elapsedTime"] := 0
                 OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: User is NOT IDLE! Ticks' been reset!")
 
                 continue
@@ -693,12 +688,10 @@ monitorWindows(windows, process_name)
         {
             ; Perform this window's task set by the user for this process
             performWindowTask(windowId, invokeTask, isInputBlock)
-            ; Once the task is done, reset its properties and mark it as managed
-            window := Map(
-                "status", "ManagingStatus",
-                "lastInactiveTick", A_TickCount,
-                "elapsedTime", 0
-            )
+            ; Once the task is done, reset its properties but mark it as ManagingStatus
+            window["status"] := "ManagingStatus"
+            window["lastInactiveTick"] := A_TickCount
+            window["elapsedTime"] := 0
         }
         ; Set the newly updated window map to the windows map for this process
         windows[windowId] := window
