@@ -25,7 +25,7 @@ global config := Map()
 ; POLLING_INTERVAL_MS (Milliseconds):
 ;   This is the interval which is how often this script monitors the processes, lower number means much faster
 ;   polling rate, but can tasking for the system
-config["POLLING_INTERVAL_MS"] := 1000
+config["POLLING_INTERVAL_MS"] := 15000
 
 ; ACTIVE_WINDOW_TIMEOUT (Milliseconds):
 ;   The amount of time the user is deemed idle
@@ -134,17 +134,17 @@ validateConfigAndOverrides()
     }
 
     ; Validate monitor override settings
-    for , process in config["MONITOR_OVERRIDES"]
+    for process_name, process in config["MONITOR_OVERRIDES"]
     {
         overrides := process["overrides"]
         if (overrides.Has("TASK_INTERVAL_MS") && config["POLLING_INTERVAL_MS"] > overrides["TASK_INTERVAL_MS"])
         {
-            invalidValuesMsg .= "[Override of " process["name"] "]`nPOLLING_INTERVAL_MS (" config["POLLING_INTERVAL_MS"] "ms) > TASK_INTERVAL_MS (" overrides["TASK_INTERVAL_MS"] "ms)`nPolling rate must be lower than this override!`n`n"
+            invalidValuesMsg .= "[Override of " process_name "]`nPOLLING_INTERVAL_MS (" config["POLLING_INTERVAL_MS"] "ms) > TASK_INTERVAL_MS (" overrides["TASK_INTERVAL_MS"] "ms)`nPolling rate must be lower than this override!`n`n"
             isOverridePass := false
         }
         if (overrides.Has("ACTIVE_WINDOW_TIMEOUT_MS") && config["POLLING_INTERVAL_MS"] > overrides["ACTIVE_WINDOW_TIMEOUT_MS"])
         {
-            invalidValuesMsg .= "[Override of " process["name"] "]`nPOLLING_INTERVAL_MS (" config["POLLING_INTERVAL_MS"] "ms) > ACTIVE_WINDOW_TIMEOUT_MS (" overrides["ACTIVE_WINDOW_TIMEOUT_MS"] "ms)`nPolling rate must be lower than this override!`n"
+            invalidValuesMsg .= "[Override of " process_name "]`nPOLLING_INTERVAL_MS (" config["POLLING_INTERVAL_MS"] "ms) > ACTIVE_WINDOW_TIMEOUT_MS (" overrides["ACTIVE_WINDOW_TIMEOUT_MS"] "ms)`nPolling rate must be lower than this override!`n"
             isOverridePass := false
         }
 
