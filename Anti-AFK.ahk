@@ -289,7 +289,7 @@ performWindowTask(windowId, invokeTask, isInputBlock)
             Send("{Alt Down}{Tab Up}{Tab Down}")
             Sleep(500)
             Send("{Alt Up}")
-            MsgBox("For the script to perform its operations properly, the script has Alt+Tabbed you out from the active window.`nBeing active on a window with a class name of Windows.UI.Core.CoreWindow can hinder the script from activating the monitored process' target window.`nThis pop-up box will automatically close itself in 30 seconds.", , "OK Icon! T30")
+            MsgBox("For the script to perform its operations properly, the script has Alt + Tabbed you out from the active window.`nBeing active on a window with a class name of Windows.UI.Core.CoreWindow can hinder the script from activating the monitored process' target window.`nThis pop-up box will automatically close itself in 30 seconds.", , "OK Icon! T30")
         }
 
         blockUserInput("On", isInputBlock)
@@ -635,7 +635,8 @@ registerWindowIds(windows, process_name)
         ; In this process' windows map, set a map for this window id
         windows[windowId] := Map(
             "status", "MonitoringStatus",
-            "lastActivityTick", A_TickCount
+            "lastInactiveTick", A_TickCount,
+            "elapsedTime", 0
         )
         OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Created window for process")
     }
@@ -658,49 +659,47 @@ monitorWindows(windows, process_name)
             windows.Delete(windowId)
             continue
         }
-        ; Calculate the time since the last window inactivity
-        elapsedInactivityTimeMs := A_TickCount - window["lastActivityTick"]
-        ; The user is currently active on this window
+        window["elapsedTime"] := A_TickCount - window["lastInactiveTick"]
+        ; The user is PRESENT in this window
         if (WinActive("ahk_id " windowId))
         {
-
+            ; User is NOT IDLING in this window
             if (A_TimeIdlePhysical <= config["ACTIVE_WINDOW_TIMEOUT_MS"])
             {
-                ; User is not idling on this window, reset if needed
                 ; TODO: this condition is not consistent
-                if (elapsedInactivityTimeMs = 0)
+                if (window["elapsedTime"] = 0)
                 {
                     continue
                 }
-                elapsedInactivityTimeMs := 0
                 windows[windowId] := Map(
                     "status", "MonitoringStatus",
-                    "lastActivityTick", A_TickCount
+                    "lastInactiveTick", A_TickCount,
+                    "elapsedTime", 0
                 )
-                OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: User is ACTIVE! Elapsed inactivity time has been reset! " A_TimeIdlePhysical " / " config["ACTIVE_WINDOW_TIMEOUT_MS"] "!")
+                OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: User is NOT IDLE! Ticks' been reset!")
                 continue
             }
-            ; User is being inactive for more than the configured ACTIVE_WINDOW_TIMEOUT,
-            ; set the inactivity as the task interval for its task to be performed in the next poll
-            OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: User is IDLE in the window for " A_TimeIdlePhysical " / " config["ACTIVE_WINDOW_TIMEOUT_MS"] "!")
+            ; User is IDLING in this window
+            ; for more than the configured ACTIVE_WINDOW_TIMEOUT,
+            ; force set the elapsed time as the task interval for its task to be performed in the next poll
+            OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: User is IDLE! " A_TimeIdlePhysical "ms / " config["ACTIVE_WINDOW_TIMEOUT_MS"] "ms")
             if (window["status"] = "MonitoringStatus")
             {
-                elapsedInactivityTimeMs := taskIntervalMs
+                window["elapsedTime"] := taskIntervalMs
             }
         }
-
-        OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Window is detected inactive for: " elapsedInactivityTimeMs " ms / " taskIntervalMs " ms")
-        ; The inactivity exceeds the time for the task, it is now time to trigger the window's task
-        if (elapsedInactivityTimeMs >= taskIntervalMs)
+        ; The user is ABSENT in this window, they're present in a different window
+        OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Window is detected inactive for: " window["elapsedTime"] "ms / " taskIntervalMs "ms")
+        ; This window's been inactive enough, it is now time to trigger the window's task
+        if (window["elapsedTime"] >= taskIntervalMs)
         {
             ; Perform this window's task set by the user for this process
             performWindowTask(windowId, invokeTask, isInputBlock)
-            ; Once the task is done,
-            ; update window's status and reset this window's last activity tick
-            elapsedInactivityTimeMs := 0
+            ; Once the task is done, reset its properties and mark it as managed
             window := Map(
                 "status", "ManagingStatus",
-                "lastActivityTick", A_TickCount
+                "lastInactiveTick", A_TickCount,
+                "elapsedTime", 0
             )
         }
         ; Set the newly updated window map to the windows map for this process
