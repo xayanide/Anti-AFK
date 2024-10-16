@@ -491,7 +491,7 @@ registerWindowIds(windows, process_name)
         ; In this process' windows map, set a map for this window id
         windows[windowId] := Map(
             "status", "MonitoringStatus",
-            "lastWindowActivityTick", A_TickCount
+            "lastActivityTick", A_TickCount
         )
         OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Created window for process")
     }
@@ -579,7 +579,7 @@ monitorWindows(windows, process_name)
             continue
         }
         ; Calculate the time since the last window inactivity
-        elapsedInactivityTimeMs := A_TickCount - window["lastWindowActivityTick"]
+        elapsedInactivityTimeMs := A_TickCount - window["lastActivityTick"]
         ; The user is currently active on this window
         if (WinActive("ahk_id " windowId))
         {
@@ -591,20 +591,20 @@ monitorWindows(windows, process_name)
                 OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: User is IDLE! Polling...")
                 if (window["status"] = "MonitoringStatus")
                 {
-                    window["lastWindowActivityTick"] += (A_TickCount - window["lastWindowActivityTick"])
+                    window["lastActivityTick"] += (A_TickCount - window["lastActivityTick"])
                 }
             }
             else
             {
                 ; This window's last activity tick is already reset, no need to set it again
-                if (window["lastWindowActivityTick"] = A_TickCount)
+                if (window["lastActivityTick"] = A_TickCount)
                 {
                     continue
                 }
-                ; User is currently active on this window, reset its lastWindowActivityTick
+                ; User is currently active on this window, reset its lastActivityTick
                 windows[windowId] := Map(
                     "status", "MonitoringStatus",
-                    "lastWindowActivityTick", A_TickCount
+                    "lastActivityTick", A_TickCount
                 )
                 OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: User is ACTIVE! Elapsed inactivity time has been reset!")
                 continue
@@ -622,7 +622,7 @@ monitorWindows(windows, process_name)
             ; update window's status and reset this window's last activity tick 
             window := Map(
                 "status", "ManagingStatus",
-                "lastWindowActivityTick", A_TickCount
+                "lastActivityTick", A_TickCount
             )
         }
         ; Set the newly updated window map to the windows map for this process
