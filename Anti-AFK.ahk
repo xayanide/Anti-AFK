@@ -723,11 +723,11 @@ monitorProcesses()
         }
     }
     updateSystemTray(processes)
-    ; Monitor the processes again according to what's configured as its polling interval
-    SetTimer(monitorProcesses, config["POLLING_INTERVAL_MS"])
 }
 
 validateConfigAndOverrides()
 requestElevation()
 ; Initiate the first poll
 monitorProcesses()
+; Monitor the processes again according to what's configured as its polling interval
+SetTimer(monitorProcesses, config["POLLING_INTERVAL_MS"])
