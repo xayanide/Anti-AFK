@@ -61,7 +61,8 @@ config["IS_INPUT_BLOCK"] := false
 config["MONITOR_LIST"] := [
     "RobloxPlayerBeta.exe",
     "notepad.exe",
-    "wordpad.exe"]
+    "wordpad.exe"
+]
 
 ; PROCESS_OVERRIDES (Associative Array):
 ;   This allows you to specify specific values of ACTIVE_WINDOW_TIMEOUT_MS, TASK_INTERVAL,
@@ -71,14 +72,14 @@ config["MONITOR_LIST"] := [
 config["MONITOR_OVERRIDES"] := Map(
     "wordpad.exe", Map(
         "overrides", Map(
-            "ACTIVE_WINDOW_TIMEOUT_MS", 10000,
+            "ACTIVE_WINDOW_TIMEOUT_MS", 30000,
             "TASK_INTERVAL_MS", 600000,
             "IS_INPUT_BLOCK", false,
             "TASK", () => (
                 Send("1")))),
     "notepad.exe", Map(
         "overrides", Map(
-            "ACTIVE_WINDOW_TIMEOUT_MS", 10000,
+            "ACTIVE_WINDOW_TIMEOUT_MS", 30000,
             "TASK_INTERVAL_MS", 600000,
             "IS_INPUT_BLOCK", false,
             "TASK", () => (
