@@ -22,10 +22,10 @@
 
 global config := Map()
 
-; POLLING_RATE_MS (Milliseconds):
+; POLLING_INTERVAL_MS (Milliseconds):
 ;   This is the interval which is how often this script monitors the processes, lower number means much faster
 ;   polling rate, but can tasking for the system
-config["POLLING_RATE_MS"] := 5000
+config["POLLING_INTERVAL_MS"] := 5000
 
 ; ACTIVE_WINDOW_TIMEOUT (Milliseconds):
 ;   The amount of time the user is deemed idle
@@ -60,7 +60,7 @@ config["IS_INPUT_BLOCK"] := false
 ;   This is a list of processes that Anti-AFK will montior. Any windows that do
 ;   not belong to any of these processes will be ignored.
 config["MONITOR_LIST"] := [
-    "RobloxPlayerBeta.exea",
+    "RobloxPlayerBeta.exe",
     "notepad.exe",
     "wordpad.exe"
 ]
@@ -111,22 +111,22 @@ validateConfigAndOverrides()
     isConfigPass := true
     isOverridePass := true
 
-    ; Check if POLLING_RATE_MS is less than or equal to 0
-    if (config["POLLING_RATE_MS"] <= 0)
+    ; Check if POLLING_INTERVAL_MS is less than or equal to 0
+    if (config["POLLING_INTERVAL_MS"] <= 0)
     {
         MsgBox("ERROR: The configured polling rate is less than or equal to 0. The script will exit immediately.", , "OK Iconx")
         ExitApp(1)
     }
 
     ; Validate the main configuration settings
-    if (config["POLLING_RATE_MS"] > config["TASK_INTERVAL_MS"])
+    if (config["POLLING_INTERVAL_MS"] > config["TASK_INTERVAL_MS"])
     {
-        invalidValuesMsg .= "[Config]`nPOLLING_RATE_MS (" config["POLLING_RATE_MS"] "ms) > TASK_INTERVAL_MS (" config["TASK_INTERVAL_MS"] "ms)`nPolling rate must be lower than this setting!`n`n"
+        invalidValuesMsg .= "[Config]`nPOLLING_INTERVAL_MS (" config["POLLING_INTERVAL_MS"] "ms) > TASK_INTERVAL_MS (" config["TASK_INTERVAL_MS"] "ms)`nPolling rate must be lower than this setting!`n`n"
         isConfigPass := false
     }
-    if (config["POLLING_RATE_MS"] > config["ACTIVE_WINDOW_TIMEOUT_MS"])
+    if (config["POLLING_INTERVAL_MS"] > config["ACTIVE_WINDOW_TIMEOUT_MS"])
     {
-        invalidValuesMsg .= "[Config]`nPOLLING_RATE_MS (" config["POLLING_RATE_MS"] "ms) > ACTIVE_WINDOW_TIMEOUT_MS (" config["ACTIVE_WINDOW_TIMEOUT_MS"] "ms)`nPolling rate must be lower than this setting!`n`n"
+        invalidValuesMsg .= "[Config]`nPOLLING_INTERVAL_MS (" config["POLLING_INTERVAL_MS"] "ms) > ACTIVE_WINDOW_TIMEOUT_MS (" config["ACTIVE_WINDOW_TIMEOUT_MS"] "ms)`nPolling rate must be lower than this setting!`n`n"
         isConfigPass := false
     }
 
@@ -146,14 +146,14 @@ validateConfigAndOverrides()
     for , process in config["MONITOR_OVERRIDES"]
     {
         overrides := process["overrides"]
-        if (overrides.Has("TASK_INTERVAL_MS") && config["POLLING_RATE_MS"] > overrides["TASK_INTERVAL_MS"])
+        if (overrides.Has("TASK_INTERVAL_MS") && config["POLLING_INTERVAL_MS"] > overrides["TASK_INTERVAL_MS"])
         {
-            invalidValuesMsg .= "[Override of " process["name"] "]`nPOLLING_RATE_MS (" config["POLLING_RATE_MS"] "ms) > TASK_INTERVAL_MS (" overrides["TASK_INTERVAL_MS"] "ms)`nPolling rate must be lower than this override!`n`n"
+            invalidValuesMsg .= "[Override of " process["name"] "]`nPOLLING_INTERVAL_MS (" config["POLLING_INTERVAL_MS"] "ms) > TASK_INTERVAL_MS (" overrides["TASK_INTERVAL_MS"] "ms)`nPolling rate must be lower than this override!`n`n"
             isOverridePass := false
         }
-        if (overrides.Has("ACTIVE_WINDOW_TIMEOUT_MS") && config["POLLING_RATE_MS"] > overrides["ACTIVE_WINDOW_TIMEOUT_MS"])
+        if (overrides.Has("ACTIVE_WINDOW_TIMEOUT_MS") && config["POLLING_INTERVAL_MS"] > overrides["ACTIVE_WINDOW_TIMEOUT_MS"])
         {
-            invalidValuesMsg .= "[Override of " process["name"] "]`nPOLLING_RATE_MS (" config["POLLING_RATE_MS"] "ms) > ACTIVE_WINDOW_TIMEOUT_MS (" overrides["ACTIVE_WINDOW_TIMEOUT_MS"] "ms)`nPolling rate must be lower than this override!`n"
+            invalidValuesMsg .= "[Override of " process["name"] "]`nPOLLING_INTERVAL_MS (" config["POLLING_INTERVAL_MS"] "ms) > ACTIVE_WINDOW_TIMEOUT_MS (" overrides["ACTIVE_WINDOW_TIMEOUT_MS"] "ms)`nPolling rate must be lower than this override!`n"
             isOverridePass := false
         }
 
@@ -410,7 +410,7 @@ activateWindow(window)
 ; Calculate the number of polls it will take for the time (in seconds) to pass.
 getTotalPolls(minutes)
 {
-    return Max(1, Round(minutes * 60 / config["POLLING_RATE_MS"]))
+    return Max(1, Round(minutes * 60 / config["POLLING_INTERVAL_MS"]))
 }
 
 ; Find and return a specific attribute for a program, prioritising values in PROCESS_OVERRIDES.
@@ -734,7 +734,7 @@ monitorProcesses()
     }
     updateSystemTray(processes)
     ; Monitor the processes again according to what's configured as its polling interval
-    SetTimer(monitorProcesses, config["POLLING_RATE_MS"])
+    SetTimer(monitorProcesses, config["POLLING_INTERVAL_MS"])
 }
 
 validateConfigAndOverrides()
