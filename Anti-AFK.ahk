@@ -659,9 +659,11 @@ monitorWindows(windows, process_name)
             if (A_TimeIdlePhysical <= activeWindowTimeoutMs)
             {
                 OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: User is NOT IDLE! Elapsed Window Inactivity: " window["elapsedTime"] "")
-                ; Do not reset if it's already reset
+                ; Do not reset the elapsed time if it's already reset
+                ; Only update the tickcount
                 if (window["elapsedTime"] = 0)
                 {
+                    window["lastInactiveTick"] := A_TickCount
                     continue
                 }
                 windows[windowId] := Map(
