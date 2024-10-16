@@ -25,7 +25,7 @@ global config := Map()
 ; POLL_INTERVAL (Seconds):
 ;   This is the interval which Anti-AFK checks for new windows and calculates
 ;   how much time is left before exisiting windows become inactve.
-config["POLL_INTERVAL"] := 1
+config["POLL_INTERVAL"] := 1000
 
 ; ACTIVE_WINDOW_TIMEOUT (Milliseconds):
 ;   The amount of time the user is deemed idle in a window they are active on.
@@ -40,8 +40,7 @@ config["ACTIVE_WINDOW_TIMEOUT_MS"] := 120000
 config["TASK"] := () => (
     Send("{Space Down}")
     Sleep(1)
-    Send("{Space Up}")
-)
+    Send("{Space Up}"))
 
 ; TASK_INTERVAL (Minutes):
 ;   Amount of time the window is deemed inactive, once the window is inactive for more than this time,
@@ -474,7 +473,6 @@ registerWindowIds(windows, process_name)
     {
         return windows
     }
-    pollsLeft := getTotalPolls(getAttributeValue("TASK_INTERVAL", process_name))
     ; For every window id found under the process, set a window map for that process' windows map
     ; only if it meets certain conditions
     for , windowId in windowIds
@@ -492,7 +490,7 @@ registerWindowIds(windows, process_name)
         ; In this process' windows map, set a map for this window id
         windows[windowId] := Map(
             "status", "MonitoringStatus",
-            "pollsLeft", pollsLeft
+            "lastExecutedTime", 0
         )
         OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Created window for process")
     }
@@ -566,7 +564,7 @@ isWindowTargetable(HWND)
 
 monitorWindows(windows, process_name)
 {
-    intervalTotalPolls := getTotalPolls(getAttributeValue("TASK_INTERVAL", process_name))
+    intervalTotalMs := getAttributeValue("TASK_INTERVAL", process_name) * 60000
     invokeTask := getAttributeValue("TASK", process_name)
     isInputBlock := getAttributeValue("IS_INPUT_BLOCK", process_name)
     ; For every window in this process
@@ -590,36 +588,36 @@ monitorWindows(windows, process_name)
                 OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: User is IDLE! Polling...")
                 if (window["status"] = "MonitoringStatus")
                 {
-                    window["pollsLeft"] := 1
+                    window["elapsedTime"] += config["POLL_INTERVAL"]
                 }
             }
             else
             {
                 ; This window's poll is already reset, no need to set it again
-                if (window["pollsLeft"] = intervalTotalPolls)
+                if (window["elapsedTime"] = 0)
                 {
                     continue
                 }
                 ; User is not idling on this window, reset its polls
                 windows[windowId] := Map(
                     "status", "MonitoringStatus",
-                    "pollsLeft", intervalTotalPolls
+                    "elapsedTime", 0
                 )
-                OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: User is ACTIVE! Polls have been reset!")
+                OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: User is ACTIVE! Elapsed time has been reset!")
                 continue
             }
 
         }
-        ; Decrement 1 in each poll
-        window["pollsLeft"] -= 1
-        OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Target Window: " window["pollsLeft"] " polls remaining")
-        ; No more polls remaining, time to do the task
-        if (window["pollsLeft"] < 1)
+        ; If the window is not active, still accumulate the polling interval
+        window["elapsedTime"] += config["POLL_INTERVAL"]
+        OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Target Window: " window["elapsedTime"] " ms / " intervalTotalMs " ms elapsed time")
+        ; Time to do the task
+        if (window["elapsedTime"] >= intervalTotalMs)
         {
-            ; Reset the poll with the calculated total polls from TASK_INTERVAL instead of from WINDOWS_TIMEOUT
+            ; Reset the elapsed time
             window := Map(
                 "status", "ManagingStatus",
-                "pollsLeft", intervalTotalPolls
+                "elapsedTime", 0
             )
             ; Perform this window's task set by the user for this process
             performWindowTask(windowId, invokeTask, isInputBlock)
@@ -655,7 +653,7 @@ monitorProcesses()
     }
     updateSystemTray(processes)
     ; Monitor the processes again according to what's configured as its polling interval
-    SetTimer(monitorProcesses, config["POLL_INTERVAL"] * 1000)
+    SetTimer(monitorProcesses, config["POLL_INTERVAL"])
 }
 
 requestElevation()
