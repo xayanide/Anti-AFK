@@ -25,7 +25,7 @@ global config := Map()
 ; POLLING_INTERVAL_MS (Milliseconds):
 ;   This is the interval which is how often this script monitors the processes, lower number means much faster
 ;   polling rate, but can tasking for the system
-config["POLLING_INTERVAL_MS"] := 5000
+config["POLLING_INTERVAL_MS"] := 1000
 
 ; ACTIVE_WINDOW_TIMEOUT (Milliseconds):
 ;   The amount of time the user is deemed idle
@@ -41,8 +41,7 @@ config["ACTIVE_WINDOW_TIMEOUT_MS"] := 120000
 config["TASK"] := () => (
     Send("{Space Down}")
     Sleep(1)
-    Send("{Space Up}")
-)
+    Send("{Space Up}"))
 
 ; TASK_INTERVAL (Milliseconds):
 ;   Once the window is seen inactive for more than this time,
@@ -62,8 +61,7 @@ config["IS_INPUT_BLOCK"] := false
 config["MONITOR_LIST"] := [
     "RobloxPlayerBeta.exe",
     "notepad.exe",
-    "wordpad.exe"
-]
+    "wordpad.exe"]
 
 ; PROCESS_OVERRIDES (Associative Array):
 ;   This allows you to specify specific values of ACTIVE_WINDOW_TIMEOUT_MS, TASK_INTERVAL,
@@ -73,25 +71,18 @@ config["MONITOR_LIST"] := [
 config["MONITOR_OVERRIDES"] := Map(
     "wordpad.exe", Map(
         "overrides", Map(
-            "ACTIVE_WINDOW_TIMEOUT_MS", 120000,
+            "ACTIVE_WINDOW_TIMEOUT_MS", 10000,
             "TASK_INTERVAL_MS", 600000,
             "IS_INPUT_BLOCK", false,
             "TASK", () => (
-                Send("1")
-            )
-        )
-    ),
+                Send("1")))),
     "notepad.exe", Map(
         "overrides", Map(
-            "ACTIVE_WINDOW_TIMEOUT_MS", 120000,
+            "ACTIVE_WINDOW_TIMEOUT_MS", 10000,
             "TASK_INTERVAL_MS", 600000,
             "IS_INPUT_BLOCK", false,
             "TASK", () => (
-                Send("1")
-            )
-        )
-    )
-)
+                Send("1")))))
 
 ; --------------------
 ; Script
@@ -647,8 +638,10 @@ registerWindowIds(windows, process_name)
 monitorWindows(windows, process_name)
 {
     taskIntervalMs := getAttributeValue("TASK_INTERVAL_MS", process_name)
+    activeWindowTimeoutMs := getAttributeValue("ACTIVE_WINDOW_TIMEOUT_MS", process_name)
     invokeTask := getAttributeValue("TASK", process_name)
     isInputBlock := getAttributeValue("IS_INPUT_BLOCK", process_name)
+
     ; For every window in this process
     for windowId, window in windows
     {
@@ -659,14 +652,14 @@ monitorWindows(windows, process_name)
             windows.Delete(windowId)
             continue
         }
-        window["elapsedTime"] := A_TickCount - window["lastInactiveTick"]
         ; The user is PRESENT in this window
         if (WinActive("ahk_id " windowId))
         {
             ; User is NOT IDLING in this window
-            if (A_TimeIdlePhysical <= config["ACTIVE_WINDOW_TIMEOUT_MS"])
+            if (A_TimeIdlePhysical <= activeWindowTimeoutMs)
             {
-                ; TODO: this condition is not consistent
+                OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: User is NOT IDLE! Elapsed Window Inactivity: " window["elapsedTime"] "")
+                ; Do not reset if it's already reset
                 if (window["elapsedTime"] = 0)
                 {
                     continue
@@ -677,17 +670,20 @@ monitorWindows(windows, process_name)
                     "elapsedTime", 0
                 )
                 OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: User is NOT IDLE! Ticks' been reset!")
+
                 continue
             }
             ; User is IDLING in this window
             ; for more than the configured ACTIVE_WINDOW_TIMEOUT,
-            ; force set the elapsed time as the task interval for its task to be performed in the next poll
-            OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: User is IDLE! " A_TimeIdlePhysical "ms / " config["ACTIVE_WINDOW_TIMEOUT_MS"] "ms")
             if (window["status"] = "MonitoringStatus")
             {
+                ; Force set the elapsed time as the task interval for its task to be performed in the next poll
+                ; It will be marked as managed and will now wait for the task interval.
+                OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: User is IDLE! ")
                 window["elapsedTime"] := taskIntervalMs
             }
         }
+        window["elapsedTime"] := A_TickCount - window["lastInactiveTick"]
         ; The user is ABSENT in this window, they're present in a different window
         OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Window is detected inactive for: " window["elapsedTime"] "ms / " taskIntervalMs "ms")
         ; This window's been inactive enough, it is now time to trigger the window's task
