@@ -217,6 +217,7 @@ validateConfigAndOverrides()
         invalidValuesMsg .= "[Config]`nPOLLING_INTERVAL_MS (" config["POLLING_INTERVAL_MS"] "ms) > INACTIVE_WINDOW_TIMEOUT_MS (" config["INACTIVE_WINDOW_TIMEOUT_MS"] "ms)`nPolling rate must be lower than this setting!`n`n"
         isConfigPass := false
     }
+
     if (config["POLLING_INTERVAL_MS"] > config["ACTIVE_WINDOW_TIMEOUT_MS"])
     {
         invalidValuesMsg .= "[Config]`nPOLLING_INTERVAL_MS (" config["POLLING_INTERVAL_MS"] "ms) > ACTIVE_WINDOW_TIMEOUT_MS (" config["ACTIVE_WINDOW_TIMEOUT_MS"] "ms)`nPolling rate must be lower than this setting!`n`n"
@@ -229,6 +230,7 @@ validateConfigAndOverrides()
         invalidValuesMsg .= "[Config]`nACTIVE_WINDOW_TIMEOUT_MS (" config["ACTIVE_WINDOW_TIMEOUT_MS"] "ms)`nMust be at least 3000ms! Because anything lower can be disruptive!`n`n"
         isConfigPass := false
     }
+
     if (config["INACTIVE_WINDOW_TIMEOUT_MS"] < 3000)
     {
         invalidValuesMsg .= "[Config]`nINACTIVE_WINDOW_TIMEOUT_MS (" config["INACTIVE_WINDOW_TIMEOUT_MS"] "ms)`nMust be at least 3000ms! Because anything lower can be disruptive!`n`n"
@@ -244,6 +246,7 @@ validateConfigAndOverrides()
             invalidValuesMsg .= "[Override of " process_name "]`nPOLLING_INTERVAL_MS (" config["POLLING_INTERVAL_MS"] "ms) > INACTIVE_WINDOW_TIMEOUT_MS (" overrides["INACTIVE_WINDOW_TIMEOUT_MS"] "ms)`nPolling rate must be lower than this override!`n`n"
             isOverridePass := false
         }
+    
         if (overrides.Has("ACTIVE_WINDOW_TIMEOUT_MS") && config["POLLING_INTERVAL_MS"] > overrides["ACTIVE_WINDOW_TIMEOUT_MS"])
         {
             invalidValuesMsg .= "[Override of " process_name "]`nPOLLING_INTERVAL_MS (" config["POLLING_INTERVAL_MS"] "ms) > ACTIVE_WINDOW_TIMEOUT_MS (" overrides["ACTIVE_WINDOW_TIMEOUT_MS"] "ms)`nPolling rate must be lower than this override!`n"
@@ -264,6 +267,7 @@ validateConfigAndOverrides()
         ; Since this script is not that big, I don't want to make another condition for its returned values, exit right away instead
         ExitApp(1)
     }
+
     ; If all conditions have passed
     return true
 }
@@ -288,6 +292,7 @@ requestElevation()
         return
     }
     isAdminRequire := config["IS_INPUT_BLOCK"]
+
     for , process in config["PROCESS_OVERRIDES"]
     {
         if (process["overrides"].Has("IS_INPUT_BLOCK") && process["overrides"]["IS_INPUT_BLOCK"])
@@ -295,11 +300,13 @@ requestElevation()
             isAdminRequire := true
         }
     }
+
     ; Admin not required, do nothing
     if (!isAdminRequire)
     {
         return
     }
+
     ; Attempt to relaunch the scipt with elevated permissions, showing a UAC prompt to the user
     try
     {
@@ -312,6 +319,7 @@ requestElevation()
             RunWait('*RunAs "' A_AhkPath '" /restart "' A_ScriptFullPath '"')
         }
     }
+
     ; User canceled the UAC prompt
     MsgBox("This requires Anti-AFK to be ran as administrator to block inputs!`nBLOCK_INPUT has been temporarily disabled.",
         "Unable to block keystrokes",
@@ -325,8 +333,9 @@ blockUserInput(option, isInputBlock)
     {
         return
     }
-    logDebug("@blockUserInput: Successfully BlockInput " option "")
+
     BlockInput(option)
+    logDebug("@blockUserInput: " option " successful!")
 }
 
 getWindow(windowInfo, fallbackWindow)
@@ -336,10 +345,10 @@ getWindow(windowInfo, fallbackWindow)
     {
         return fallbackWindow
     }
+
     windowId := "ahk_id " windowInfo["ID"]
     process_id := "ahk_pid " windowInfo["PID"]
     process_name := "ahk_exe " windowInfo["EXE"]
-
     if (WinExist(windowId))
     {
         return windowId
@@ -354,6 +363,7 @@ getWindow(windowInfo, fallbackWindow)
     {
         return process_name
     }
+
     return fallbackWindow
 }
 
@@ -362,14 +372,14 @@ getWindowInfo(window)
     windowInfo := Map()
     if (!WinExist(window))
     {
-        logDebug("[" window "] Failed to get info! Window does not exist!")
+        logDebug("[Window: " window "] Failed to retrieve window info! Window does not exist!")
         return windowInfo
     }
+
     windowInfo["ID"] := WinGetID(window)
     windowInfo["CLS"] := WinGetClass(window)
     windowInfo["PID"] := WinGetPID(window)
     windowInfo["EXE"] := WinGetProcessName(window)
-
     return windowInfo
 }
 
@@ -377,22 +387,25 @@ activateWindow(window)
 {
     if (!WinExist(window))
     {
-        logDebug("[" window "] Failed to activate! Window does not exist!")
+        logDebug("[Window: " window "] Failed to activate! Window does not exist!")
         return false
     }
+
     if (!isWindowTargetable(WinExist(window)))
     {
-        logDebug("[" window "] Failed to activate! Window is not targetable!")
+        logDebug("[Window: " window "] Failed to activate! Window is not targetable!")
         return false
     }
+
     WinActivate(window)
     value := WinWaitActive(window, , 0.30)
     if (value = 0)
     {
-        logDebug("[" window "] Failed to activate! Window timed out!")
+        logDebug("[Window: " window "] Failed to activate! Window timed out!")
         return false
     }
-    logDebug("[" window "] Window successfully activated!")
+
+    logDebug("[Window: " window "] Window successfully activated!")
     return true
 }
 
@@ -456,7 +469,7 @@ updateSystemTray(processes)
     }
     else
     {
-        ; No processes are active on the user, clear all the counters
+        ; None of the monitored processes are running, clear all the counters
         monitoredWindows.Clear()
         managedWindows.Clear()
     }
@@ -540,18 +553,21 @@ isWindowTargetable(HWND)
     {
         return false
     }
+
     ; Windows with the WS_DISABLED style (0x08000000)
     ; These windows are disabled and not interactive (grayed-out windows)
     if (windowStyle & 0x08000000)
     {
         return false
     }
+
     ; Windows that do not have the WS_VISIBLE style (0x10000000)
     ; These are invisible windows, not suitable for interaction
     if (!windowStyle & 0x10000000)
     {
         return false
     }
+
     windowExtendedStyle := WinGetExStyle("ahk_id " HWND)
     ; Windows with WS_EX_TOOLWINDOW (0x00000080)
     ; https://learn.microsoft.com/en-us/windows/win32/winmsg/extended-window-styles
@@ -560,6 +576,7 @@ isWindowTargetable(HWND)
     {
         return false
     }
+
     cls := WinGetClass("ahk_id " HWND)
     ; Windows with the class "TApplication"
     ; These are often Delphi or VCL-based windows, typically representing non-primary windows
@@ -567,6 +584,7 @@ isWindowTargetable(HWND)
     {
         return false
     }
+
     ; Common class for dialog boxes or dialog windows
     ; https://learn.microsoft.com/en-us/windows/win32/winmsg/about-window-classes
     ; Windows with the class "#32770"
@@ -575,6 +593,7 @@ isWindowTargetable(HWND)
     {
         return false
     }
+
     ; Windows with the class "ComboLBox"
     ; This class represents the dropdown list portion of a combo box
     ; These are not standalone windows and are part of other UI elements
@@ -582,6 +601,7 @@ isWindowTargetable(HWND)
     {
         return false
     }
+
     ; Windows with the class "Windows.UI.Core.CoreWindow"
     ; The action center, date and time info, start menu, and searchapp all belong on this class
     ; These should not be interacted by the script in any way
@@ -589,6 +609,7 @@ isWindowTargetable(HWND)
     {
         return false
     }
+
     return true
 }
 
@@ -612,6 +633,7 @@ performProcessTask(windowId, invokeTask, isInputBlock)
     logDebug("[" monitoredWindowInfo["EXE"] "] [Window ID: " monitoredWindowInfo["ID"] "] @performProcessTask: STARTED")
     monitoredWindow := "ahk_id " monitoredWindowInfo["ID"]
     logDebug("[" monitoredWindowInfo["EXE"] "] [Window ID: " monitoredWindowInfo["ID"] "] Monitored Window INFO : [CLS:" monitoredWindowInfo["CLS"] "] [ID:" monitoredWindowInfo["ID"] "] [PID:" monitoredWindowInfo["PID"] "] [EXE:" monitoredWindowInfo["EXE"] "]")
+    
     ; User is PRESENT on the monitored window, perform the task right away
     if (WinActive(monitoredWindow))
     {
@@ -620,6 +642,7 @@ performProcessTask(windowId, invokeTask, isInputBlock)
         logDebug("[" monitoredWindowInfo["EXE"] "] [Window ID: " monitoredWindowInfo["ID"] "] @performProcessTask: FINISHED")
         return
     }
+
     activeWindowInfo := getWindowInfo(activeWindow)
     oldActiveWindow := !activeWindowInfo.Count ? "" : getWindow(
         activeWindowInfo,
@@ -694,10 +717,12 @@ performProcessTask(windowId, invokeTask, isInputBlock)
         {
             WinSetTransparent("Off", monitoredWindow)
         }
+
         if (oldActiveWindow != "" && !WinActive(oldActiveWindow))
         {
             activateWindow(oldActiveWindow)
         }
+
         blockUserInput("Off", isInputBlock)
         logDebug("[" monitoredWindowInfo["EXE"] "] [Window ID: " monitoredWindowInfo["ID"] "] @performProcessTask#finally: FINISHED")
     }
@@ -710,6 +735,7 @@ registerWindows(windows, process_name)
     {
         return windows
     }
+
     ; Retrieve all found unique ids (HWNDs) for this process' windows
     windowIds := WinGetList("ahk_exe " process_name)
     ; For every window id found under the process, set a window map for that process' windows map
@@ -721,11 +747,13 @@ registerWindows(windows, process_name)
         {
             continue
         }
+
         ; This window already exists in the windows map, do not reset its map, skip it
         if (windows.Has(windowId))
         {
             continue
         }
+
         ; In this process' windows map, set a new map for this window id
         windows[windowId] := Map()
         windows[windowId]["status"] := "ActiveWindow"
@@ -733,6 +761,7 @@ registerWindows(windows, process_name)
         windows[windowId]["elapsedInactivityTime"] := 0
         logDebug("[" process_name "] [Window ID: " windowId "] Created window map")
     }
+
     ; After setting all windows that have met the conditions, return the populated windows map
     return windows
 }
@@ -754,6 +783,7 @@ monitorWindows(windows, process_name)
             windows.Delete(windowId)
             continue
         }
+    
         ; User is PRESENT in this monitored window
         if (WinActive("ahk_id " windowId))
         {
@@ -772,6 +802,7 @@ monitorWindows(windows, process_name)
                 logDebug("[" process_name "] [Window ID: " windowId "] Active monitored window: User is NOT IDLE!")
                 continue
             }
+
             ; User is IDLING in this monitored window for more than or equal to the configured ACTIVE_WINDOW_TIMEOUT_MS
             if (window["status"] = "ActiveWindow")
             {
@@ -785,11 +816,13 @@ monitorWindows(windows, process_name)
                 continue
             }
         }
+
         ; The user is ABSENT in this monitored window, they're present in a different window
         window["elapsedInactivityTime"] := A_TickCount - window["lastInactiveTick"]
         if (window["elapsedInactivityTime"] > 0) {
             logDebug("[" process_name "] [Window ID: " windowId "] Window is inactive for: " window["elapsedInactivityTime"] "ms / " inactiveWindowTimeoutMs "ms")
         }
+
         ; This monitored window's been inactive for more than or equal to the configured INACTIVE_WINDOW_TIMEOUT_MS
         if (window["elapsedInactivityTime"] >= inactiveWindowTimeoutMs)
         {
@@ -808,22 +841,25 @@ registerProcesses(processes, monitorList)
 {
     for , process_name in monitorList
     {
-        ; User does is not running this process from the monitor list, do not set
+        ; User is not running this process from the monitor list, do not set
         if (!ProcessExist(process_name))
         {
             continue
         }
+
         ; This process already has a map, do not set
         if (processes.has(process_name))
         {
             continue
         }
+
         ; In this processes map, set a map for this process name
         processes[process_name] := Map()
         ; and also with an empty windows map
         processes[process_name]["windows"] := Map()
         logDebug("[" process_name "] Created process map")
     }
+
     ; After setting the processes that have met the conditions, return the populated processes map
     return processes
 }
@@ -843,15 +879,18 @@ monitorProcesses()
                 processes.Delete(process_name)
                 continue
             }
+
             windows := registerWindows(process["windows"], process_name)
             ; No windows were found for this process, do not monitor this process' windows, skip it
             if (windows.Count < 1)
             {
                 continue
             }
+
             monitorWindows(windows, process_name)
         }
     }
+
     ; Reflect in the user's system tray the currently monitored processes and their windows
     updateSystemTray(processes)
 }
