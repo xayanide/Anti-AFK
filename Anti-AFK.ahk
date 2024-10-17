@@ -187,6 +187,11 @@ states["ManagedWindows"] := Map()
 states["lastIconNumber"] := 0
 states["lastIconTooltipText"] := ""
 
+logDebug(str) 
+{
+    OutputDebug("[" A_Now "] [DEBUG] " str "`n")
+}
+
 requestElevation()
 {
     ; Admin already, do nothing
@@ -232,7 +237,7 @@ blockUserInput(option, isInputBlock)
     {
         return
     }
-    OutputDebug("[" A_Now "] @blockUserInput: Successfully BlockInput " option "")
+    logDebug("@blockUserInput: Successfully BlockInput " option "")
     BlockInput(option)
 }
 
@@ -269,7 +274,7 @@ getWindowInfo(window)
     windowInfo := Map()
     if (!WinExist(window))
     {
-        OutputDebug("[" A_Now "] [" window "] Failed to get info! Window does not exist!")
+        logDebug("[" window "] Failed to get info! Window does not exist!")
         return windowInfo
     }
     windowInfo["ID"] := WinGetID(window)
@@ -284,22 +289,22 @@ activateWindow(window)
 {
     if (!WinExist(window))
     {
-        OutputDebug("[" A_Now "] [" window "] Failed to activate! Window does not exist! ")
+        logDebug("[" window "] Failed to activate! Window does not exist!")
         return false
     }
     if (!isWindowTargetable(WinExist(window)))
     {
-        OutputDebug("[" A_Now "] [" window "] Failed to activate! Window is not targetable!")
+        logDebug("[" window "] Failed to activate! Window is not targetable!")
         return false
     }
     WinActivate(window)
     value := WinWaitActive(window, , 0.50)
     if (value = 0)
     {
-        OutputDebug("[" A_Now "] [" window "] Failed to activate! Window timed out! ")
+        logDebug("[" window "] Failed to activate! Window timed out!")
         return false
     }
-    OutputDebug("[" A_Now "] [" window "] Window successfully activated!")
+    logDebug("[" window "] Window successfully activated!")
     return true
 }
 
@@ -504,9 +509,9 @@ performProcessTask(windowId, invokeTask, isInputBlock)
     isWindowActivateSucess := false
     activeWindow := "A"
     targetWindowInfo := getWindowInfo("ahk_id " windowId)
-    OutputDebug("[" A_Now "] [" targetWindowInfo["EXE"] "] [Window ID: " targetWindowInfo["ID"] "] @performProcessTask: Starting operations...")
+    logDebug("[" targetWindowInfo["EXE"] "] [Window ID: " targetWindowInfo["ID"] "] @performProcessTask: Starting operations...")
     targetWindow := "ahk_id " targetWindowInfo["ID"]
-    OutputDebug("[" A_Now "] Target Window INFO : [CLS:" targetWindowInfo["CLS"] "] [ID:" targetWindowInfo["ID"] "] [PID:" targetWindowInfo["PID"] "] [EXE:" targetWindowInfo["EXE"] "] [Window:" targetWindow "]")
+    logDebug("Target Window INFO : [CLS:" targetWindowInfo["CLS"] "] [ID:" targetWindowInfo["ID"] "] [PID:" targetWindowInfo["PID"] "] [EXE:" targetWindowInfo["EXE"] "] [Window:" targetWindow "]")
     ; User is PRESENT on the target window, perform the task right away
     if (WinActive(targetWindow))
     {
@@ -514,12 +519,12 @@ performProcessTask(windowId, invokeTask, isInputBlock)
         ; isWindowActivateSucess := activateWindow(targetWindow)
         ; if (!isWindowActivateSucess)
         ; {
-        ;     OutputDebug("[" A_Now "] [" targetWindowInfo["EXE"] "] [Window ID: " targetWindowInfo["ID"] "] Active Target Window invokeTask() failed!")
+        ;     logDebug("[" targetWindowInfo["EXE"] "] [Window ID: " targetWindowInfo["ID"] "] Active Target Window invokeTask() failed!")
         ;     return
         ; }
         invokeTask()
-        OutputDebug("[" A_Now "] [" targetWindowInfo["EXE"] "] [Window ID: " targetWindowInfo["ID"] "] Active Target Window task successful!")
-        OutputDebug("[" A_Now "] [" targetWindowInfo["EXE"] "] [Window ID: " targetWindowInfo["ID"] "] @performProcessTask: Finished operations")
+        logDebug("[" targetWindowInfo["EXE"] "] [Window ID: " targetWindowInfo["ID"] "] Active Target Window task successful!")
+        logDebug("[" targetWindowInfo["EXE"] "] [Window ID: " targetWindowInfo["ID"] "] @performProcessTask: Finished operations")
         return
     }
     activeWindowInfo := getWindowInfo(activeWindow)
@@ -540,7 +545,7 @@ performProcessTask(windowId, invokeTask, isInputBlock)
             isWindowActivateSucess := activateWindow(targetWindow)
             if (!isWindowActivateSucess)
             {
-                OutputDebug("[" A_Now "] [" targetWindowInfo["EXE"] "] [Window ID: " targetWindowInfo["ID"] "] Inactive Target Window invokeTask() failed!")
+                logDebug("[" targetWindowInfo["EXE"] "] [Window ID: " targetWindowInfo["ID"] "] Inactive Target Window invokeTask() failed!")
                 WinSetTransparent("Off", targetWindow)
                 return
             }
@@ -548,14 +553,14 @@ performProcessTask(windowId, invokeTask, isInputBlock)
             WinMoveBottom(targetWindow)
             return
         }
-        OutputDebug("[" A_Now "] Active Window INFO : [CLS:" activeWindowInfo["CLS"] "] [ID:" activeWindowInfo["ID"] "] [PID:" activeWindowInfo["PID"] "] [EXE:" activeWindowInfo["EXE"] "[Window:" oldActiveWindow "]")
+        logDebug("Active Window INFO : [CLS:" activeWindowInfo["CLS"] "] [ID:" activeWindowInfo["ID"] "] [PID:" activeWindowInfo["PID"] "] [EXE:" activeWindowInfo["EXE"] "[Window:" oldActiveWindow "]")
         ; User is PRESENT on these kind of Windows: Action center / Date and time information / Start Menu / Searchapp.exe,
         ; Alt + Tab the user out from those kind of Windows as a workaround
         ; Simply activating the target window will not work, the taskbar icons of the target window
         ; will flash orange, the script needs UI access to activate other windows when one of those is the active window.
         if (activeWindowInfo["CLS"] = "Windows.UI.Core.CoreWindow")
         {
-            OutputDebug("[" A_Now "] [" activeWindowInfo["EXE"] "] [Window ID: " activeWindowInfo["ID"] "] Active Window is Windows.UI.Core.CoreWindow!")
+            logDebug("[" activeWindowInfo["EXE"] "] [Window ID: " activeWindowInfo["ID"] "] Active Window is Windows.UI.Core.CoreWindow!")
             isWindowActivateSucess := activateWindow(targetWindow)
             ; Todo: Add a check here if the script is ran with ui access to bypass this work around.
             ; Send("{Alt Down}{Tab Up}{Tab Down}")
@@ -572,12 +577,12 @@ performProcessTask(windowId, invokeTask, isInputBlock)
         ; on other windows
         if (WinActive(oldActiveWindow) || !isWindowActivateSucess)
         {
-            OutputDebug("[" A_Now "] [" targetWindowInfo["EXE"] "] [Window ID: " targetWindowInfo["ID"] "] Inactive Target Window invokeTask() failed!")
+            logDebug("[" targetWindowInfo["EXE"] "] [Window ID: " targetWindowInfo["ID"] "] Inactive Target Window invokeTask() failed!")
             WinSetTransparent("Off", targetWindow)
             return
         }
         invokeTask()
-        OutputDebug("[" A_Now "] [" targetWindowInfo["EXE"] "] [Window ID: " targetWindowInfo["ID"] "] Inactive Target Window task successful!")
+        logDebug("[" targetWindowInfo["EXE"] "] [Window ID: " targetWindowInfo["ID"] "] Inactive Target Window task successful!")
         ; There is a condition in the try clause above that checks if the target window is active already. If I move this in the finally clause,
         ; it will also move the active target window to the bottom too which isn't the intended behavior
         WinMoveBottom(targetWindow)
@@ -596,7 +601,7 @@ performProcessTask(windowId, invokeTask, isInputBlock)
             activateWindow(oldActiveWindow)
         }
         blockUserInput("Off", isInputBlock)
-        OutputDebug("[" A_Now "] [" targetWindowInfo["EXE"] "] [Window ID: " targetWindowInfo["ID"] "] @performProcessTask#finally: Finished operations")
+        logDebug("[" targetWindowInfo["EXE"] "] [Window ID: " targetWindowInfo["ID"] "] @performProcessTask#finally: Finished operations")
     }
 }
 
@@ -628,7 +633,7 @@ registerWindows(windows, process_name)
         windows[windowId]["status"] := "ActiveWindow"
         windows[windowId]["lastInactiveTick"] := A_TickCount
         windows[windowId]["elapsedInactivityTime"] := 0
-        OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Created window for process")
+        logDebug("[" process_name "] [Window ID: " windowId "] Created window for process")
     }
     ; After setting all windows that have met the conditions, return the populated windows map
     return windows
@@ -647,7 +652,7 @@ monitorWindows(windows, process_name)
         ; This monitored window no longer exists, most likely closed by the user, delete it from the windows map
         if (!WinExist("ahk_id " windowId))
         {
-            OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Deleted window for process as it was closed by the user!")
+            logDebug("[" process_name "] [Window ID: " windowId "] Deleted window for process as it was closed by the user!")
             windows.Delete(windowId)
             continue
         }
@@ -666,13 +671,13 @@ monitorWindows(windows, process_name)
                 window["status"] := "ActiveWindow"
                 window["lastInactiveTick"] := A_TickCount
                 window["elapsedInactivityTime"] := 0
-                OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: User is NOT IDLE!")
+                logDebug("[" process_name "] [Window ID: " windowId "] Active Target Window: User is NOT IDLE!")
                 continue
             }
             ; User is IDLING in this monitored window for more than or equal to the configured ACTIVE_WINDOW_TIMEOUT_MS
             if (window["status"] = "ActiveWindow")
             {
-                OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Active Target Window: User is IDLE!")
+                logDebug("[" process_name "] [Window ID: " windowId "] Active Target Window: User is IDLE!")
                 ; Perform this window's task set by the user for this process
                 performProcessTask(windowId, invokeTask, isInputBlock)
                 ; Once the task is done, reset its properties then mark it as InactiveWindow
@@ -684,7 +689,7 @@ monitorWindows(windows, process_name)
         }
         ; The user is ABSENT in this monitored window, they're present in a different window
         window["elapsedInactivityTime"] := A_TickCount - window["lastInactiveTick"]
-        OutputDebug("[" A_Now "] [" process_name "] [Window ID: " windowId "] Window is inactive for: " window["elapsedInactivityTime"] "ms / " inactiveWindowTimeoutMs "ms")
+        logDebug("[" process_name "] [Window ID: " windowId "] Window is inactive for: " window["elapsedInactivityTime"] "ms / " inactiveWindowTimeoutMs "ms")
         ; This monitored window's been inactive for more than or equal to the configured INACTIVE_WINDOW_TIMEOUT_MS
         if (window["elapsedInactivityTime"] >= inactiveWindowTimeoutMs)
         {
@@ -717,7 +722,7 @@ registerProcesses(processes, monitorList)
         processes[process_name] := Map()
         ; and also with an empty windows map
         processes[process_name]["windows"] := Map()
-        OutputDebug("[" A_Now "] [" process_name "] Created process map for process")
+        logDebug("[" process_name "] Created process map for process")
     }
     ; After setting the processes that have met the conditions, return the populated processes map
     return processes
@@ -734,7 +739,7 @@ monitorProcesses()
             ; User is no longer running process and was most likely closed, delete it from the processes map
             if (!ProcessExist(process_name))
             {
-                OutputDebug("[" A_Now "] [" process_name "] Deleted process map for process as it was closed by the user!")
+                logDebug("[" process_name "] Deleted process map for process as it was closed by the user!")
                 processes.Delete(process_name)
                 continue
             }
