@@ -860,7 +860,7 @@ registerProcesses(processes, monitorList)
         logDebug("[" process_name "] Created process map")
     }
 
-    ; After setting the processes that have met the conditions, return the populated processes map
+    ; After setting up the processes that have met the conditions, return the populated processes map
     return processes
 }
 
