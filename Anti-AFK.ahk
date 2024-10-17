@@ -197,7 +197,6 @@ InstallMouseHook(true)
 
 KeyHistory(0)
 
-; Returns false if any config or override value is invalid, returns true if everything looks good
 validateConfigAndOverrides()
 {
     invalidValuesMsg := ""
