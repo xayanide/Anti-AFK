@@ -34,7 +34,7 @@ globals["config"] := Map()
 ;   Setting lower values means it will check more often, but can be tasking for the system.
 ; Default:
 ; 10000 (10 seconds)
-globals["config"]["POLLING_INTERVAL_MS"] := -1
+globals["config"]["POLLING_INTERVAL_MS"] := 10000
 
 ; ACTIVE_WINDOW_TIMEOUT_MS (Milliseconds):
 ;   The amount of time the user is considered idle in a monitored window they currently have in focus.
