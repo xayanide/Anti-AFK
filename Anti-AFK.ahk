@@ -500,17 +500,17 @@ updateSystemTray(processes)
     }
 
     ; Update the tray icon only if it has changed
-    if (iconNumber != globals["states"]["Icon"]["lastIconNumber"])
+    if (iconNumber != globals["states"]["Tray"]["lastIconNumber"])
     {
         TraySetIcon(A_AhkPath, iconNumber)
-        globals["states"]["Icon"]["lastIconNumber"] := iconNumber
+        globals["states"]["Tray"]["lastIconNumber"] := iconNumber
     }
 
     ; Update the tooltip only if it has changed
-    if (tooltipText != globals["states"]["Icon"]["lastIconTooltipText"])
+    if (tooltipText != globals["states"]["Tray"]["lastIconTooltipText"])
     {
         A_IconTip := tooltipText
-        globals["states"]["Icon"]["lastIconTooltipText"] := tooltipText
+        globals["states"]["Tray"]["lastIconTooltipText"] := tooltipText
     }
 }
 
@@ -878,9 +878,9 @@ globals["states"]["Processes"] := Map()
 globals["states"]["Counters"] := Map()
 globals["states"]["Counters"]["monitored"] := Map()
 globals["states"]["Counters"]["managed"] := Map()
-globals["states"]["Icon"] := Map()
-globals["states"]["Icon"]["lastIconNumber"] := 0
-globals["states"]["Icon"]["lastIconTooltipText"] := ""
+globals["states"]["Tray"] := Map()
+globals["states"]["Tray"]["lastIconNumber"] := 0
+globals["states"]["Tray"]["lastIconTooltipText"] := ""
 ; Initiate the first poll
 monitorProcesses()
 ; Monitor the processes again according to what's configured as its polling interval
