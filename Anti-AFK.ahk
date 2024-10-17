@@ -868,8 +868,8 @@ monitorProcesses()
 
 validateConfigAndOverrides()
 requestElevation()
-; Both of these exist for the simulated key presses in the task to not interfere with the script's timers
-; one of those timers is A_TimeIdlePhysical
+; Both of these exist for the simulated key presses in the task to not interfere with the script's timers.
+; One of those timers is A_TimeIdlePhysical
 InstallKeybdHook(true)
 InstallMouseHook(true)
 KeyHistory(0)
