@@ -577,7 +577,7 @@ isWindowTargetable(HWND)
     }
 
     ; Windows with the class "Windows.UI.Core.CoreWindow"
-    ; The action center, date and time info, start menu, and searchapp all belong on this class
+    ; The action center, date and time info, start menu, and search all belong on this class
     ; These should not be interacted by the script in any way
     if (windowCLS = "Windows.UI.Core.CoreWindow")
     {
@@ -639,7 +639,7 @@ performProcessTask(windowId, invokeTask, isInputBlock)
 
         logDebug("[" activeWindowInfo["EXE"] "] [Window ID: " activeWindowInfo["ID"] "] Active Window INFO : [CLS:" activeWindowInfo["CLS"] "] [ID:" activeWindowInfo["ID"] "] [PID:" activeWindowInfo["PID"] "] [EXE:" activeWindowInfo["EXE"] "]")
 
-        ; User is PRESENT on these kind of Windows: Action center / Date and time information / Start Menu / Searchapp.exe
+        ; User is PRESENT on these kind of Windows: Action center / Date and time information / Start Menu / Search
         ; Simply activating the monitored window will not work, the taskbar icons of the monitored window will flash, indicating that it's not activated.
         ; The script needs to be ran with UI access to activate other windows while the user is active on those Windows UI Core windows.
         if (activeWindowInfo["CLS"] = "Windows.UI.Core.CoreWindow")
