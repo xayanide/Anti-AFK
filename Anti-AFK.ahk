@@ -546,8 +546,9 @@ updateSystemTray(processes)
 ; Helps filtering out the windows the script should not interact with
 isWindowTargetable(HWND)
 {
+    window := "ahk_id " HWND
     ; https://www.autohotkey.com/docs/v2/misc/Styles.htm
-    windowStyle := WinGetStyle("ahk_id " HWND)
+    windowStyle := WinGetStyle(window)
     ; Windows with the WS_POPUP style (0x80000000)
     if (windowStyle & 0x80000000)
     {
@@ -568,7 +569,7 @@ isWindowTargetable(HWND)
         return false
     }
 
-    windowExtendedStyle := WinGetExStyle("ahk_id " HWND)
+    windowExtendedStyle := WinGetExStyle(window)
     ; Windows with WS_EX_TOOLWINDOW (0x00000080)
     ; https://learn.microsoft.com/en-us/windows/win32/winmsg/extended-window-styles
     ; Tool windows are often small floating windows (like toolbars) and are usually not primary windows
@@ -577,10 +578,10 @@ isWindowTargetable(HWND)
         return false
     }
 
-    cls := WinGetClass("ahk_id " HWND)
+    windowCLS := WinGetClass(window)
     ; Windows with the class "TApplication"
     ; These are often Delphi or VCL-based windows, typically representing non-primary windows
-    if (cls = "TApplication")
+    if (windowCLS = "TApplication")
     {
         return false
     }
@@ -589,7 +590,7 @@ isWindowTargetable(HWND)
     ; https://learn.microsoft.com/en-us/windows/win32/winmsg/about-window-classes
     ; Windows with the class "#32770"
     ; This class represents dialog boxes, such as 'Open' or 'Save As' dialogs
-    if (cls = "#32770")
+    if (windowCLS = "#32770")
     {
         return false
     }
@@ -597,7 +598,7 @@ isWindowTargetable(HWND)
     ; Windows with the class "ComboLBox"
     ; This class represents the dropdown list portion of a combo box
     ; These are not standalone windows and are part of other UI elements
-    if (cls = "ComboLBox")
+    if (windowCLS = "ComboLBox")
     {
         return false
     }
@@ -605,7 +606,7 @@ isWindowTargetable(HWND)
     ; Windows with the class "Windows.UI.Core.CoreWindow"
     ; The action center, date and time info, start menu, and searchapp all belong on this class
     ; These should not be interacted by the script in any way
-    if (cls = "Windows.UI.Core.CoreWindow")
+    if (windowCLS = "Windows.UI.Core.CoreWindow")
     {
         return false
     }
