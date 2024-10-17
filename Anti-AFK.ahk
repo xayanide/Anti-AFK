@@ -1,3 +1,10 @@
+#Requires AutoHotkey v2.0
+#SingleInstance
+#Warn
+
+; Do not list lines (Commented for now)
+; ListLines(0)
+
 ; TODO:
 ; Issues:
 ; When the user quickly switches between specified process' windows, the script might still poll and decrements one of its timer. The supposed behavior is to reset the polls
@@ -15,21 +22,19 @@
 ; Solution 1: For this script to be able to activate other windows while active on a CoreWindow, "Run with UI Access" this script. Run as admin will not work as a solution.
 ; Solution 2: Alt + Tab to get out from the CoreWindow, then activate the monitored window
 
-; Do not list lines (Commented for now)
-; ListLines(0)
-
 ; --------------------
 ; Configuration
 ; --------------------
 
-global config := Map()
+global globals := Map()
+globals["config"] := Map()
 
 ; POLLING_INTERVAL_MS (Milliseconds):
 ;   This is the interval which is how often this script monitors the processes and its windows.
 ;   Setting lower values means it will check more often, but can be tasking for the system.
 ; Default:
 ; 10000 (10 seconds)
-config["POLLING_INTERVAL_MS"] := 10000
+globals["config"]["POLLING_INTERVAL_MS"] := -1
 
 ; ACTIVE_WINDOW_TIMEOUT_MS (Milliseconds):
 ;   The amount of time the user is considered idle in a monitored window they currently have in focus.
@@ -39,7 +44,7 @@ config["POLLING_INTERVAL_MS"] := 10000
 ;   the window will be marked as inactive, and the task is rescheduled to execute after reaching INACTIVE_WINDOW_TIMEOUT_MS.
 ; Default:
 ; 60000 (60 seconds or 1 minute)
-config["ACTIVE_WINDOW_TIMEOUT_MS"] := 60000
+globals["config"]["ACTIVE_WINDOW_TIMEOUT_MS"] := 60000
 
 ; PROCESS_TASK (Function):
 ;   This is where you can write what you want the script to do once the monitored window is in focus.
@@ -55,7 +60,7 @@ config["ACTIVE_WINDOW_TIMEOUT_MS"] := 60000
 ;     Sleep(20)
 ;     Send("{Space Up}")
 ; )
-config["PROCESS_TASK"] := () => (
+globals["config"]["PROCESS_TASK"] := () => (
     Send("{Space Down}")
     Sleep(20)
     Send("{Space Up}")
@@ -67,7 +72,7 @@ config["PROCESS_TASK"] := () => (
 ;   the script will perform its task and repeat this.
 ; Default:
 ; 180000 (180 seconds or 3 minutes)
-config["INACTIVE_WINDOW_TIMEOUT_MS"] := 180000
+globals["config"]["INACTIVE_WINDOW_TIMEOUT_MS"] := 180000
 
 ; IS_INPUT_BLOCK (Boolean):
 ;   This tells the script whether you want to block any input temporarily while it shuffles
@@ -77,7 +82,7 @@ config["INACTIVE_WINDOW_TIMEOUT_MS"] := 180000
 ;   may 'leak' into the monitored window when the script moves it into focus.
 ; Default:
 ; false
-config["IS_INPUT_BLOCK"] := false
+globals["config"]["IS_INPUT_BLOCK"] := false
 
 ; MONITOR_LIST (String Array):
 ;   This is a list of processes that the script will montior.
@@ -88,7 +93,7 @@ config["IS_INPUT_BLOCK"] := false
 ;     "notepad.exe",
 ;     "wordpad.exe"
 ; ]
-config["MONITOR_LIST"] := [
+globals["config"]["MONITOR_LIST"] := [
     "RobloxPlayerBeta.exe",
     "notepad.exe",
     "wordpad.exe"
@@ -142,7 +147,7 @@ config["MONITOR_LIST"] := [
 ;         )
 ;     )
 ; )
-config["PROCESS_OVERRIDES"] := Map(
+globals["config"]["PROCESS_OVERRIDES"] := Map(
     "RobloxPlayerBeta.exe", Map(
         "overrides", Map(
             ; 2 minutes
@@ -186,69 +191,62 @@ config["PROCESS_OVERRIDES"] := Map(
 ; --------------------
 ; Script
 ; --------------------
-#Requires AutoHotkey v2.0
-#SingleInstance
-#Warn
-
-; Both of these exist for the simulated key presses in the task to not interfere with the script's timers
-; one of those timers is A_TimeIdlePhysical
-InstallKeybdHook(true)
-InstallMouseHook(true)
-
-KeyHistory(0)
 
 validateConfigAndOverrides()
 {
     invalidValuesMsg := ""
     isConfigPass := true
     isOverridePass := true
+    pollingIntervalMs := globals["config"]["POLLING_INTERVAL_MS"]
 
     ; Check if POLLING_INTERVAL_MS is less than or equal to 0
-    if (config["POLLING_INTERVAL_MS"] <= 0)
+    if (pollingIntervalMs <= 0)
     {
         MsgBox("ERROR: The configured polling rate is less than or equal to 0. The script will exit immediately.", , "OK Iconx")
         ExitApp(1)
     }
-
+    inactiveWindowTimeoutMs := globals["config"]["INACTIVE_WINDOW_TIMEOUT_MS"]
     ; Validate the main configuration settings
-    if (config["POLLING_INTERVAL_MS"] > config["INACTIVE_WINDOW_TIMEOUT_MS"])
+    if (pollingIntervalMs > inactiveWindowTimeoutMs)
     {
-        invalidValuesMsg .= "[Config]`nPOLLING_INTERVAL_MS (" config["POLLING_INTERVAL_MS"] "ms) > INACTIVE_WINDOW_TIMEOUT_MS (" config["INACTIVE_WINDOW_TIMEOUT_MS"] "ms)`nPolling rate must be lower than this setting!`n`n"
+        invalidValuesMsg .= "[Config]`nPOLLING_INTERVAL_MS (" pollingIntervalMs "ms) > INACTIVE_WINDOW_TIMEOUT_MS (" inactiveWindowTimeoutMs "ms)`nPolling rate must be lower than this setting!`n`n"
         isConfigPass := false
     }
 
-    if (config["POLLING_INTERVAL_MS"] > config["ACTIVE_WINDOW_TIMEOUT_MS"])
+    activeWindowTimeoutMs := globals["config"]["ACTIVE_WINDOW_TIMEOUT_MS"]
+    if (pollingIntervalMs > activeWindowTimeoutMs)
     {
-        invalidValuesMsg .= "[Config]`nPOLLING_INTERVAL_MS (" config["POLLING_INTERVAL_MS"] "ms) > ACTIVE_WINDOW_TIMEOUT_MS (" config["ACTIVE_WINDOW_TIMEOUT_MS"] "ms)`nPolling rate must be lower than this setting!`n`n"
+        invalidValuesMsg .= "[Config]`nPOLLING_INTERVAL_MS (" pollingIntervalMs "ms) > ACTIVE_WINDOW_TIMEOUT_MS (" activeWindowTimeoutMs "ms)`nPolling rate must be lower than this setting!`n`n"
         isConfigPass := false
     }
 
-    ; Check if ACTIVE_WINDOW_TIMEOUT_MS or INACTIVE_WINDOW_TIMEOUT_MS are less than 3000 ms
-    if (config["ACTIVE_WINDOW_TIMEOUT_MS"] < 3000)
+    ; Check if ACTIVE_WINDOW_TIMEOUT_MS is less than 3000 ms
+    if (activeWindowTimeoutMs < 3000)
     {
-        invalidValuesMsg .= "[Config]`nACTIVE_WINDOW_TIMEOUT_MS (" config["ACTIVE_WINDOW_TIMEOUT_MS"] "ms)`nMust be at least 3000ms! Because anything lower can be disruptive!`n`n"
+        invalidValuesMsg .= "[Config]`nACTIVE_WINDOW_TIMEOUT_MS (" activeWindowTimeoutMs "ms)`nMust be at least 3000ms! Because anything lower can be disruptive!`n`n"
         isConfigPass := false
     }
 
-    if (config["INACTIVE_WINDOW_TIMEOUT_MS"] < 3000)
+    ; Check if INACTIVE_WINDOW_TIMEOUT_MS is less than 3000 ms
+    if (inactiveWindowTimeoutMs < 3000)
     {
-        invalidValuesMsg .= "[Config]`nINACTIVE_WINDOW_TIMEOUT_MS (" config["INACTIVE_WINDOW_TIMEOUT_MS"] "ms)`nMust be at least 3000ms! Because anything lower can be disruptive!`n`n"
+        invalidValuesMsg .= "[Config]`nINACTIVE_WINDOW_TIMEOUT_MS (" inactiveWindowTimeoutMs "ms)`nMust be at least 3000ms! Because anything lower can be disruptive!`n`n"
         isConfigPass := false
     }
 
     ; Validate monitor override settings
-    for process_name, process in config["PROCESS_OVERRIDES"]
+    for process_name, process in globals["config"]["PROCESS_OVERRIDES"]
     {
         overrides := process["overrides"]
-        if (overrides.Has("INACTIVE_WINDOW_TIMEOUT_MS") && config["POLLING_INTERVAL_MS"] > overrides["INACTIVE_WINDOW_TIMEOUT_MS"])
+        if (overrides.Has("INACTIVE_WINDOW_TIMEOUT_MS") && pollingIntervalMs > overrides["INACTIVE_WINDOW_TIMEOUT_MS"])
         {
-            invalidValuesMsg .= "[Override of " process_name "]`nPOLLING_INTERVAL_MS (" config["POLLING_INTERVAL_MS"] "ms) > INACTIVE_WINDOW_TIMEOUT_MS (" overrides["INACTIVE_WINDOW_TIMEOUT_MS"] "ms)`nPolling rate must be lower than this override!`n`n"
+            invalidValuesMsg .= "[Override of " process_name "]`nPOLLING_INTERVAL_MS (" pollingIntervalMs "ms) > INACTIVE_WINDOW_TIMEOUT_MS (" overrides["INACTIVE_WINDOW_TIMEOUT_MS"] "ms)`nPolling rate must be lower than this override!`n`n"
             isOverridePass := false
         }
 
-        if (overrides.Has("ACTIVE_WINDOW_TIMEOUT_MS") && config["POLLING_INTERVAL_MS"] > overrides["ACTIVE_WINDOW_TIMEOUT_MS"])
+        if (overrides.Has("ACTIVE_WINDOW_TIMEOUT_MS") && pollingIntervalMs > overrides["ACTIVE_WINDOW_TIMEOUT_MS"])
         {
-            invalidValuesMsg .= "[Override of " process_name "]`nPOLLING_INTERVAL_MS (" config["POLLING_INTERVAL_MS"] "ms) > ACTIVE_WINDOW_TIMEOUT_MS (" overrides["ACTIVE_WINDOW_TIMEOUT_MS"] "ms)`nPolling rate must be lower than this override!`n"
+            invalidValuesMsg .= "[Override of " process_name "]`nPOLLING_INTERVAL_MS (" pollingIntervalMs "ms) > ACTIVE_WINDOW_TIMEOUT_MS (" overrides["ACTIVE_WINDOW_TIMEOUT_MS"] "ms)`nPolling rate must be lower than this override!`n"
             isOverridePass := false
         }
 
@@ -271,15 +269,6 @@ validateConfigAndOverrides()
     return true
 }
 
-global states := Map()
-states["Processes"] := Map()
-states["Counters"] := Map()
-states["Counters"]["monitored"] := Map()
-states["Counters"]["managed"] := Map()
-states["Icon"] := Map()
-states["Icon"]["lastIconNumber"] := 0
-states["Icon"]["lastIconTooltipText"] := ""
-
 logDebug(str)
 {
     OutputDebug("[" A_Now "] [DEBUG] " str "")
@@ -292,9 +281,9 @@ requestElevation()
     {
         return
     }
-    isAdminRequire := config["IS_INPUT_BLOCK"]
+    isAdminRequire := globals["config"]["IS_INPUT_BLOCK"]
 
-    for , process in config["PROCESS_OVERRIDES"]
+    for , process in globals["config"]["PROCESS_OVERRIDES"]
     {
         if (process["overrides"].Has("IS_INPUT_BLOCK") && process["overrides"]["IS_INPUT_BLOCK"])
         {
@@ -414,7 +403,7 @@ activateWindow(window)
 ; If an override has not been setup for that process, the default value from the configuration for all processes will be used instead.
 getAttributeValue(attributeName, process_name)
 {
-    processOverrides := config["PROCESS_OVERRIDES"]
+    processOverrides := globals["config"]["PROCESS_OVERRIDES"]
     if (processOverrides.Has(process_name))
     {
         if (processOverrides[process_name]["overrides"].Has(attributeName))
@@ -422,13 +411,13 @@ getAttributeValue(attributeName, process_name)
             return processOverrides[process_name]["overrides"][attributeName]
         }
     }
-    return config[attributeName]
+    return globals["config"][attributeName]
 }
 
 updateSystemTray(processes)
 {
-    monitoredWindows := states["Counters"]["monitored"]
-    managedWindows := states["Counters"]["managed"]
+    monitoredWindows := globals["states"]["Counters"]["monitored"]
+    managedWindows := globals["states"]["Counters"]["managed"]
     ; Only iterate when there are processes
     if (processes.Count > 0)
     {
@@ -527,17 +516,17 @@ updateSystemTray(processes)
     }
 
     ; Update the tray icon only if it has changed
-    if (iconNumber != states["Icon"]["lastIconNumber"])
+    if (iconNumber != globals["states"]["Icon"]["lastIconNumber"])
     {
         TraySetIcon(A_AhkPath, iconNumber)
-        states["Icon"]["lastIconNumber"] := iconNumber
+        globals["states"]["Icon"]["lastIconNumber"] := iconNumber
     }
 
     ; Update the tooltip only if it has changed
-    if (tooltipText != states["Icon"]["lastIconTooltipText"])
+    if (tooltipText != globals["states"]["Icon"]["lastIconTooltipText"])
     {
         A_IconTip := tooltipText
-        states["Icon"]["lastIconTooltipText"] := tooltipText
+        globals["states"]["Icon"]["lastIconTooltipText"] := tooltipText
     }
 }
 
@@ -869,7 +858,7 @@ registerProcesses(processes, monitorList)
 monitorProcesses()
 {
     ; Monitoring operations START here
-    processes := registerProcesses(states["Processes"], config["MONITOR_LIST"])
+    processes := registerProcesses(globals["states"]["Processes"], globals["config"]["MONITOR_LIST"])
     if (processes.Count > 0)
     {
         for process_name, process in processes
@@ -899,7 +888,20 @@ monitorProcesses()
 
 validateConfigAndOverrides()
 requestElevation()
+; Both of these exist for the simulated key presses in the task to not interfere with the script's timers
+; one of those timers is A_TimeIdlePhysical
+InstallKeybdHook(true)
+InstallMouseHook(true)
+KeyHistory(0)
+globals["states"] := Map()
+globals["states"]["Processes"] := Map()
+globals["states"]["Counters"] := Map()
+globals["states"]["Counters"]["monitored"] := Map()
+globals["states"]["Counters"]["managed"] := Map()
+globals["states"]["Icon"] := Map()
+globals["states"]["Icon"]["lastIconNumber"] := 0
+globals["states"]["Icon"]["lastIconTooltipText"] := ""
 ; Initiate the first poll
 monitorProcesses()
 ; Monitor the processes again according to what's configured as its polling interval
-SetTimer(monitorProcesses, config["POLLING_INTERVAL_MS"])
+SetTimer(monitorProcesses, globals["config"]["POLLING_INTERVAL_MS"])
