@@ -799,14 +799,14 @@ monitorWindows(windows, process_name)
                 window["status"] := "ActiveWindow"
                 window["lastInactiveTick"] := A_TickCount
                 window["elapsedInactivityTime"] := 0
-                logDebug("[" process_name "] [Window ID: " windowId "] Active monitored window: User is NOT IDLE!")
+                logDebug("[" process_name "] [Window ID: " windowId "] Active Monitored Window: User is NOT IDLE! Timers' been reset!")
                 continue
             }
 
             ; User is IDLING in this monitored window for more than or equal to the configured ACTIVE_WINDOW_TIMEOUT_MS
             if (window["status"] = "ActiveWindow")
             {
-                logDebug("[" process_name "] [Window ID: " windowId "] Active monitored window: User is IDLE!")
+                logDebug("[" process_name "] [Window ID: " windowId "] Active Monitored Window: User is IDLE!")
                 ; Perform this window's task set by the user for this process
                 performProcessTask(windowId, invokeTask, isInputBlock)
                 ; Once the task is done, reset its properties then mark it as InactiveWindow
