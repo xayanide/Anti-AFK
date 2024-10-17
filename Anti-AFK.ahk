@@ -443,11 +443,11 @@ updateSystemTray(processes)
                 for , window in windows
                 {
                     windowStatus := window["status"]
-                    if (windowStatus = "ActiveWindow")
+                    if (windowStatus = "MONITORED")
                     {
                         monitoredWindows[process_name] += 1
                     }
-                    else if (windowStatus = "InactiveWindow")
+                    else if (windowStatus = "MANAGED")
                     {
                         managedWindows[process_name] += 1
                     }
@@ -756,7 +756,7 @@ registerWindows(windows, process_name)
 
         ; In this process' windows map, set a new map for this window id
         windows[windowId] := Map()
-        windows[windowId]["status"] := "ActiveWindow"
+        windows[windowId]["status"] := "MONITORED"
         windows[windowId]["lastInactiveTick"] := A_TickCount
         windows[windowId]["elapsedInactivityTime"] := 0
         logDebug("[" process_name "] [Window ID: " windowId "] Created window map")
@@ -796,7 +796,7 @@ monitorWindows(windows, process_name)
                     window["lastInactiveTick"] := A_TickCount
                     continue
                 }
-                window["status"] := "ActiveWindow"
+                window["status"] := "MONITORED"
                 window["lastInactiveTick"] := A_TickCount
                 window["elapsedInactivityTime"] := 0
                 logDebug("[" process_name "] [Window ID: " windowId "] Active Monitored Window: User is NOT IDLE! Timers' been reset!")
@@ -804,13 +804,13 @@ monitorWindows(windows, process_name)
             }
 
             ; User is IDLING in this monitored window for more than or equal to the configured ACTIVE_WINDOW_TIMEOUT_MS
-            if (window["status"] = "ActiveWindow")
+            if (window["status"] = "MONITORED")
             {
                 logDebug("[" process_name "] [Window ID: " windowId "] Active Monitored Window: User is IDLE!")
                 ; Perform this window's task set by the user for this process
                 performProcessTask(windowId, invokeTask, isInputBlock)
-                ; Once the task is done, reset its properties then mark it as InactiveWindow
-                window["status"] := "InactiveWindow"
+                ; Once the task is done, reset its properties then mark it as MANAGED
+                window["status"] := "MANAGED"
                 window["lastInactiveTick"] := A_TickCount
                 window["elapsedInactivityTime"] := 0
                 continue
@@ -828,8 +828,8 @@ monitorWindows(windows, process_name)
         {
             ; Perform the configured task for this monitored window's process.
             performProcessTask(windowId, invokeTask, isInputBlock)
-            ; Once the task is done, reset its properties then mark it as InactiveWindow
-            window["status"] := "InactiveWindow"
+            ; Once the task is done, reset its properties then mark it as MANAGED
+            window["status"] := "MANAGED"
             window["lastInactiveTick"] := A_TickCount
             window["elapsedInactivityTime"] := 0
         }
