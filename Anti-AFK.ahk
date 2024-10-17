@@ -25,7 +25,9 @@ global config := Map()
 ; POLLING_INTERVAL_MS (Milliseconds):
 ;   This is the interval which is how often this script monitors the processes and its windows.
 ;   Setting lower values means it will check more often, but can be tasking for the system.
-config["POLLING_INTERVAL_MS"] := 1000
+; Default: 
+; 10000 (10 seconds)
+config["POLLING_INTERVAL_MS"] := 10000
 
 ; ACTIVE_WINDOW_TIMEOUT_MS (Milliseconds):
 ;   The amount of time the user is considered idle in a monitored window they currently have in focus.
@@ -33,7 +35,9 @@ config["POLLING_INTERVAL_MS"] := 1000
 ;   the configured task for the process (default or override) will be performed right away.
 ;   If the user is still idling in that same monitored window after reaching this timeout,
 ;   the window will be marked as inactive, and the task is rescheduled to execute after reaching INACTIVE_WINDOW_TIMEOUT_MS.
-config["ACTIVE_WINDOW_TIMEOUT_MS"] := 5000
+; Default:
+; 60000 (60 seconds or 1 minute)
+config["ACTIVE_WINDOW_TIMEOUT_MS"] := 60000
 
 ; PROCESS_TASK (Function):
 ;   This is where you can write what you want the script to do once the monitored window is in focus.
@@ -53,7 +57,9 @@ config["PROCESS_TASK"] := () => (
 ;   The amount of time the user is absent from the monitored window.
 ;   If the user is still absent from the monitored window for more than or equal to this time,
 ;   the script will perform its task and repeat this.
-config["INACTIVE_WINDOW_TIMEOUT_MS"] := 20000
+; Default:
+; 180000 (180 seconds or 3 minutes)
+config["INACTIVE_WINDOW_TIMEOUT_MS"] := 180000
 
 ; IS_INPUT_BLOCK (Boolean):
 ;   This tells the script whether you want to block any input temporarily while it shuffles
@@ -61,11 +67,19 @@ config["INACTIVE_WINDOW_TIMEOUT_MS"] := 20000
 ;   This requires administrator permissions and is therefore disabled by default.
 ;   If input is not blocked, keystrokes from the user from interacting other windows
 ;   may 'leak' into the monitored window when the script moves it into focus.
+; Default:
+; false
 config["IS_INPUT_BLOCK"] := false
 
 ; MONITOR_LIST (String Array):
 ;   This is a list of processes that the script will montior.
 ;   Any windows that do not belong to any of these processes will be ignored.
+; Default:
+; [
+;     "RobloxPlayerBeta.exe",
+;     "notepad.exe",
+;     "wordpad.exe"
+; ]
 config["MONITOR_LIST"] := [
     "RobloxPlayerBeta.exe",
     "notepad.exe",
@@ -79,21 +93,87 @@ config["MONITOR_LIST"] := [
 ;   reset the AFK timer does not work as well across different applications.
 ;   For the overrides to work, include the overriden process' name to the MONITOR_LIST.
 ;   This is not the monitor list.
+; Default:
+; Map(
+;     "RobloxPlayerBeta.exe", Map(
+;         "overrides", Map(
+;             ; 2 minutes
+;             "ACTIVE_WINDOW_TIMEOUT_MS", 120000,
+;             ; 10 minutes
+;             "INACTIVE_WINDOW_TIMEOUT_MS", 600000,
+;             "IS_INPUT_BLOCK", false,
+;             "PROCESS_TASK", () => (
+;                 Send("{Space Down}")
+;                 Sleep(20)
+;                 Send("{Space Up}")
+;             )
+;         )
+;     ),
+;     "notepad.exe", Map(
+;         "overrides", Map(
+;             ; 15 seconds
+;             "ACTIVE_WINDOW_TIMEOUT_MS", 15000,
+;             ; 30 seconds
+;             "INACTIVE_WINDOW_TIMEOUT_MS", 30000,
+;             "IS_INPUT_BLOCK", false,
+;             "PROCESS_TASK", () => (
+;                 Send("1")
+;             )
+;         )
+;     ),
+;     "wordpad.exe", Map(
+;         "overrides", Map(
+;             ; 15 seconds
+;             "ACTIVE_WINDOW_TIMEOUT_MS", 15000,
+;             ; 30 seconds
+;             "INACTIVE_WINDOW_TIMEOUT_MS", 30000,
+;             "IS_INPUT_BLOCK", false,
+;             "PROCESS_TASK", () => (
+;                 Send("1")
+;             )
+;         )
+;     )
+; )
 config["PROCESS_OVERRIDES"] := Map(
-    "wordpad.exe", Map(
+    "RobloxPlayerBeta.exe", Map(
         "overrides", Map(
-            "ACTIVE_WINDOW_TIMEOUT_MS", 30000,
+            ; 2 minutes
+            "ACTIVE_WINDOW_TIMEOUT_MS", 120000,
+            ; 10 minutes
             "INACTIVE_WINDOW_TIMEOUT_MS", 600000,
             "IS_INPUT_BLOCK", false,
             "PROCESS_TASK", () => (
-                Send("1")))),
+                Send("{Space Down}")
+                Sleep(20)
+                Send("{Space Up}")
+            )
+        )
+    ),
     "notepad.exe", Map(
         "overrides", Map(
-            "ACTIVE_WINDOW_TIMEOUT_MS", 30000,
-            "INACTIVE_WINDOW_TIMEOUT_MS", 600000,
+            ; 15 seconds
+            "ACTIVE_WINDOW_TIMEOUT_MS", 15000,
+            ; 30 seconds
+            "INACTIVE_WINDOW_TIMEOUT_MS", 30000,
             "IS_INPUT_BLOCK", false,
             "PROCESS_TASK", () => (
-                Send("1")))))
+                Send("1")
+            )
+        )
+    ),
+    "wordpad.exe", Map(
+        "overrides", Map(
+            ; 15 seconds
+            "ACTIVE_WINDOW_TIMEOUT_MS", 15000,
+            ; 30 seconds
+            "INACTIVE_WINDOW_TIMEOUT_MS", 30000,
+            "IS_INPUT_BLOCK", false,
+            "PROCESS_TASK", () => (
+                Send("1")
+            )
+        )
+    )
+)
 
 ; --------------------
 ; Script
@@ -515,13 +595,6 @@ performProcessTask(windowId, invokeTask, isInputBlock)
     ; User is PRESENT on the target window, perform the task right away
     if (WinActive(targetWindow))
     {
-        ; ; Activate the window again just to make sure
-        ; isWindowActivateSucess := activateWindow(targetWindow)
-        ; if (!isWindowActivateSucess)
-        ; {
-        ;     logDebug("[" targetWindowInfo["EXE"] "] [Window ID: " targetWindowInfo["ID"] "] Active Target Window invokeTask() failed!")
-        ;     return
-        ; }
         invokeTask()
         logDebug("[" targetWindowInfo["EXE"] "] [Window ID: " targetWindowInfo["ID"] "] Active Target Window task successful!")
         logDebug("[" targetWindowInfo["EXE"] "] [Window ID: " targetWindowInfo["ID"] "] @performProcessTask: Finished operations")
@@ -535,7 +608,6 @@ performProcessTask(windowId, invokeTask, isInputBlock)
     ; User is ABSENT on the target window, try to activate the target window
     try
     {
-
         ; User is PRESENT on any window / User is PRESENT on the Desktop
         ; Bringing the Desktop window back to the front can cause some scaling issues, so we ignore it.
         ; The Desktop's window has a class of "WorkerW" or "Progman"
@@ -554,19 +626,19 @@ performProcessTask(windowId, invokeTask, isInputBlock)
             return
         }
         logDebug("Active Window INFO : [CLS:" activeWindowInfo["CLS"] "] [ID:" activeWindowInfo["ID"] "] [PID:" activeWindowInfo["PID"] "] [EXE:" activeWindowInfo["EXE"] "[Window:" oldActiveWindow "]")
-        ; User is PRESENT on these kind of Windows: Action center / Date and time information / Start Menu / Searchapp.exe,
-        ; Alt + Tab the user out from those kind of Windows as a workaround
-        ; Simply activating the target window will not work, the taskbar icons of the target window
-        ; will flash orange, the script needs UI access to activate other windows when one of those is the active window.
+        ; User is PRESENT on these kind of Windows: Action center / Date and time information / Start Menu / Searchapp.exe
+        ; Simply activating the target window will not work, the taskbar icons of the target window will flash, indicating that it's not activated.
+        ; The script will need to be ran with UI access to activate other windows while the user is active on those system CoreWindow class windows.
         if (activeWindowInfo["CLS"] = "Windows.UI.Core.CoreWindow")
         {
             logDebug("[" activeWindowInfo["EXE"] "] [Window ID: " activeWindowInfo["ID"] "] Active Window is Windows.UI.Core.CoreWindow!")
             isWindowActivateSucess := activateWindow(targetWindow)
             ; Todo: Add a check here if the script is ran with ui access to bypass this work around.
-            ; Send("{Alt Down}{Tab Up}{Tab Down}")
-            ; Sleep(500)
-            ; Send("{Alt Up}")
-            ; MsgBox("For the script to perform its operations properly, the script has Alt + Tabbed you out from the active window.`nBeing active on a window with a class name of Windows.UI.Core.CoreWindow can hinder the script from activating the monitored process' target window.`nThis pop-up box will automatically close itself in 30 seconds.", , "OK Icon! T30")
+            ; Alt + Tab the user out from those kind of Windows as a workaround
+            Send("{Alt Down}{Tab Up}{Tab Down}")
+            Sleep(500)
+            Send("{Alt Up}")
+            MsgBox("For the script to perform its operations properly, the script has Alt + Tabbed you out from the active window.`nBeing active on a window with a class name of Windows.UI.Core.CoreWindow can hinder the script from activating the monitored process' target window.`nThis pop-up box will automatically close itself in 30 seconds.", , "OK Icon! T30")
         }
 
         blockUserInput("On", isInputBlock)
