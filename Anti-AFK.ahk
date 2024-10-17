@@ -762,7 +762,7 @@ registerWindows(windows, process_name)
         logDebug("[" process_name "] [Window ID: " windowId "] Created window map")
     }
 
-    ; After setting all windows that have met the conditions, return the populated windows map
+    ; After setting up all windows that have met the conditions, return the populated windows map
     return windows
 }
 
