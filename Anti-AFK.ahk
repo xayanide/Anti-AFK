@@ -1,9 +1,4 @@
-; --------------------
-; Configuration
-; --------------------
-
 ; TODO:
-
 ; Issues:
 ; When the user quickly switches between specified process' windows, the script might still poll and decrements one of its timer. The supposed behavior is to reset the polls
 ; PARTIALLY FIXED: For CoreWindows, if these are the active windows. No other windows can be activated, the taskbar icons of the target windows will flash orange.
@@ -19,7 +14,14 @@
 ; https://www.autohotkey.com/docs/v2/FAQ.htm#uac
 ; Solution 1: For this script to be able to activate other windows while active on a CoreWindow, "Run with UI Access" this script. Run as admin will not work as a solution.
 ; Solution 2: Alt + Tab to get out from the CoreWindow, then activate the target window
+
+; Do not list lines (Commented for now)
 ; ListLines(0)
+
+; --------------------
+; Configuration
+; --------------------
+
 global config := Map()
 
 ; POLLING_INTERVAL_MS (Milliseconds):
