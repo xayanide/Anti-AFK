@@ -353,6 +353,7 @@ getWindowInfo(window)
     windowInfo["CLS"] := WinGetClass(window)
     windowInfo["PID"] := WinGetPID(window)
     windowInfo["EXE"] := WinGetProcessName(window)
+    windowInfo["TITLE"] := WinGetTitle(window)
     return windowInfo
 }
 
@@ -627,6 +628,7 @@ performProcessTask(windowId, invokeTask, isInputBlock)
             {
                 logDebug("[" monitoredWindowInfo["EXE"] "] [Window ID: " monitoredWindowInfo["ID"] "] Inactive Monitored Window invokeTask() failed!")
                 WinSetTransparent("Off", monitoredWindow)
+                showTraytip("The script has failed to perform a task to " monitoredWindowInfo["EXE"] "'s monitored window: '" monitoredWindowInfo["TITLE"] "' (" monitoredWindowInfo["ID"] ")", "Anti-AFK has failed to perform a process' task", "Iconx", -35000)
                 return
             }
             invokeTask()
@@ -648,7 +650,8 @@ performProcessTask(windowId, invokeTask, isInputBlock)
             Send("{Alt Down}{Tab Up}{Tab Down}")
             Sleep(500)
             Send("{Alt Up}")
-            showTraytip("For the monitored processes' tasks to perform properly, the script has Alt + Tabbed you out from a Windows UI Core window.`nBeing active on a window with a class name of Windows.UI.Core.CoreWindow while the script performs can hinder the activation of the monitored window.", "Anti-AFK has Alt + Tabbed you out from a Windows UI Core window", "Icon!", -35000)
+            showTraytip("For the monitored windows to activate, Anti-AFK has Alt + Tabbed you out from a Windows UI Core window: '" activeWindowInfo["TITLE"] "' (" activeWindowInfo["ID"] ")", "Anti-AFK has Alt + Tabbed you out from a Windows UI Core window", "Icon!", -35000)
+            showTraytip("Being active on a Windows UI Core window while the script performs a task can hinder the activation of the monitored window.", "Anti-AFK Notice", "Iconi", -35000)
         }
 
         ; User is ABSENT on the monitored window
@@ -665,6 +668,7 @@ performProcessTask(windowId, invokeTask, isInputBlock)
         {
             logDebug("[" monitoredWindowInfo["EXE"] "] [Window ID: " monitoredWindowInfo["ID"] "] Inactive Monitored Window invokeTask() failed!")
             WinSetTransparent("Off", monitoredWindow)
+            showTraytip("The script has failed to perform a task to " monitoredWindowInfo["EXE"] "'s monitored window: '" monitoredWindowInfo["TITLE"] "' (" monitoredWindowInfo["ID"] ")", "Anti-AFK has failed to perform a process' task", "Iconx", -35000)
             return
         }
 
