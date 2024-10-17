@@ -843,7 +843,7 @@ monitorProcesses()
     {
         for process_name, process in processes
         {
-            ; User is no longer running process and was most likely closed, delete it from the processes map
+            ; User is no longer running this process and was most likely closed, delete it from the processes map
             if (!ProcessExist(process_name))
             {
                 logDebug("[" process_name "] Deleted process map as it was closed by the user!")
