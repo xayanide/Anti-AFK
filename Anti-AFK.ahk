@@ -47,6 +47,12 @@ config["ACTIVE_WINDOW_TIMEOUT_MS"] := 60000
 ;   Read more about it this here:
 ;   https://www.reddit.com/r/AutohotkeyCheats/comments/svseph/how_to_make_ahk_work_with_games_the_basics/
 ;   https://www.autohotkey.com/boards/viewtopic.php?t=11084
+; Default:
+; config["PROCESS_TASK"] := () => (
+;     Send("{Space Down}")
+;     Sleep(20)
+;     Send("{Space Up}")
+; )
 config["PROCESS_TASK"] := () => (
     Send("{Space Down}")
     Sleep(20)
