@@ -27,7 +27,7 @@ global config := Map()
 ; POLLING_INTERVAL_MS (Milliseconds):
 ;   This is the interval which is how often this script monitors the processes and its windows.
 ;   Setting lower values means it will check more often, but can be tasking for the system.
-; Default: 
+; Default:
 ; 10000 (10 seconds)
 config["POLLING_INTERVAL_MS"] := 10000
 
@@ -245,7 +245,7 @@ validateConfigAndOverrides()
             invalidValuesMsg .= "[Override of " process_name "]`nPOLLING_INTERVAL_MS (" config["POLLING_INTERVAL_MS"] "ms) > INACTIVE_WINDOW_TIMEOUT_MS (" overrides["INACTIVE_WINDOW_TIMEOUT_MS"] "ms)`nPolling rate must be lower than this override!`n`n"
             isOverridePass := false
         }
-    
+
         if (overrides.Has("ACTIVE_WINDOW_TIMEOUT_MS") && config["POLLING_INTERVAL_MS"] > overrides["ACTIVE_WINDOW_TIMEOUT_MS"])
         {
             invalidValuesMsg .= "[Override of " process_name "]`nPOLLING_INTERVAL_MS (" config["POLLING_INTERVAL_MS"] "ms) > ACTIVE_WINDOW_TIMEOUT_MS (" overrides["ACTIVE_WINDOW_TIMEOUT_MS"] "ms)`nPolling rate must be lower than this override!`n"
@@ -273,12 +273,14 @@ validateConfigAndOverrides()
 
 global states := Map()
 states["Processes"] := Map()
-states["MonitoredWindows"] := Map()
-states["ManagedWindows"] := Map()
-states["lastIconNumber"] := 0
-states["lastIconTooltipText"] := ""
+states["Counters"] := Map()
+states["Counters"]["monitored"] := Map()
+states["Counters"]["managed"] := Map()
+states["Icon"] := Map()
+states["Icon"]["lastIconNumber"] := 0
+states["Icon"]["lastIconTooltipText"] := ""
 
-logDebug(str) 
+logDebug(str)
 {
     OutputDebug("[" A_Now "] [DEBUG] " str "")
 }
@@ -425,8 +427,8 @@ getAttributeValue(attributeName, process_name)
 
 updateSystemTray(processes)
 {
-    monitoredWindows := states["MonitoredWindows"]
-    managedWindows := states["ManagedWindows"]
+    monitoredWindows := states["Counters"]["monitored"]
+    managedWindows := states["Counters"]["managed"]
     ; Only iterate when there are processes
     if (processes.Count > 0)
     {
@@ -453,12 +455,11 @@ updateSystemTray(processes)
                     }
                 }
 
-                ; No windows were found to have the conditioned statuses
-                ; Remove this process entry from the monitored and managed windows
                 if (monitoredWindows[process_name] = 0)
                 {
                     monitoredWindows.Delete(process_name)
                 }
+
                 if (managedWindows[process_name] = 0)
                 {
                     managedWindows.Delete(process_name)
@@ -466,9 +467,9 @@ updateSystemTray(processes)
             }
         }
     }
+    ; None of the monitored processes are running, clear all the counters
     else
     {
-        ; None of the monitored processes are running, clear all the counters
         monitoredWindows.Clear()
         managedWindows.Clear()
     }
@@ -481,15 +482,15 @@ updateSystemTray(processes)
         if (monitoredWindows.Count > 0)
         {
             tooltipText := "Managing:`n"
-            for process_name, windowsCount in managedWindows
+            for process_name, counter in managedWindows
             {
-                tooltipText .= process_name " - " windowsCount "`n"
+                tooltipText .= process_name " - " counter " windows(s)`n"
             }
 
             tooltipText .= "`nMonitoring:`n"
-            for process_name, windowsCount in monitoredWindows
+            for process_name, counter in monitoredWindows
             {
-                tooltipText .= process_name " - " windowsCount "`n"
+                tooltipText .= process_name " - " counter " windows(s)`n"
             }
 
             tooltipText := RTrim(tooltipText, "`n")
@@ -498,9 +499,9 @@ updateSystemTray(processes)
         else
         {
             tooltipText := "Managing:`n"
-            for process_name, windowsCount in managedWindows
+            for process_name, counter in managedWindows
             {
-                tooltipText .= process_name " - " windowsCount "`n"
+                tooltipText .= process_name " - " counter " windows(s)`n"
             }
 
             tooltipText := RTrim(tooltipText, "`n")
@@ -511,9 +512,9 @@ updateSystemTray(processes)
     {
         iconNumber := 3
         tooltipText := "Monitoring:`n"
-        for process_name, windowsCount in monitoredWindows
+        for process_name, counter in monitoredWindows
         {
-            tooltipText .= process_name " - " windowsCount "`n"
+            tooltipText .= process_name " - " counter " windows(s)`n"
         }
 
         tooltipText := RTrim(tooltipText, "`n")
@@ -526,17 +527,17 @@ updateSystemTray(processes)
     }
 
     ; Update the tray icon only if it has changed
-    if (iconNumber != states["lastIconNumber"])
+    if (iconNumber != states["Icon"]["lastIconNumber"])
     {
         TraySetIcon(A_AhkPath, iconNumber)
-        states["lastIconNumber"] := iconNumber
+        states["Icon"]["lastIconNumber"] := iconNumber
     }
 
     ; Update the tooltip only if it has changed
-    if (tooltipText != states["lastIconTooltipText"])
+    if (tooltipText != states["Icon"]["lastIconTooltipText"])
     {
         A_IconTip := tooltipText
-        states["lastIconTooltipText"] := tooltipText
+        states["Icon"]["lastIconTooltipText"] := tooltipText
     }
 }
 
@@ -619,7 +620,7 @@ showTooltip()
     SetTimer(hideTooltip, 30000)
 }
 
-hideTooltip() 
+hideTooltip()
 {
     ToolTip("")
     SetTimer(hideTooltip, 0)
@@ -633,7 +634,7 @@ performProcessTask(windowId, invokeTask, isInputBlock)
     logDebug("[" monitoredWindowInfo["EXE"] "] [Window ID: " monitoredWindowInfo["ID"] "] @performProcessTask: STARTED")
     monitoredWindow := "ahk_id " monitoredWindowInfo["ID"]
     logDebug("[" monitoredWindowInfo["EXE"] "] [Window ID: " monitoredWindowInfo["ID"] "] Monitored Window INFO : [CLS:" monitoredWindowInfo["CLS"] "] [ID:" monitoredWindowInfo["ID"] "] [PID:" monitoredWindowInfo["PID"] "] [EXE:" monitoredWindowInfo["EXE"] "]")
-    
+
     ; User is PRESENT on the monitored window, perform the task right away
     if (WinActive(monitoredWindow))
     {
@@ -783,7 +784,7 @@ monitorWindows(windows, process_name)
             windows.Delete(windowId)
             continue
         }
-    
+
         ; User is PRESENT in this monitored window
         if (WinActive("ahk_id " windowId))
         {
@@ -819,7 +820,8 @@ monitorWindows(windows, process_name)
 
         ; The user is ABSENT in this monitored window, they're present in a different window
         window["elapsedInactivityTime"] := A_TickCount - window["lastInactiveTick"]
-        if (window["elapsedInactivityTime"] > 0) {
+        if (window["elapsedInactivityTime"] > 0)
+        {
             logDebug("[" process_name "] [Window ID: " windowId "] Window is inactive for: " window["elapsedInactivityTime"] "ms / " inactiveWindowTimeoutMs "ms")
         }
 
