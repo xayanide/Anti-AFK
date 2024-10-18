@@ -25,7 +25,7 @@ globals["config"] := Map()
 ;   Any polling interval that is exactly equal to ACTIVE_WINDOW_TIMEOUT_MS and INACTIVE_WINDOW_TIMEOUT_MS will guarantee zero excess time.
 ;   Must ideally be a divisor of the two timeout values to ensure that the total duration calculated by the polling interval aligns perfectly with the timeout.
 ;   To find the divisors of timeouts, list the numbers that divide the timeouts without leaving a remainder.
-;   Find the one that is common among them, that shall be your ideal polling interval.
+;   Find and choose one that is common among them, that shall be your ideal polling interval.
 ;   The script will let you know about invalid values if found.
 ; Default:
 ; 5000 (5 seconds)
