@@ -7,32 +7,72 @@
 
 ; --------------------
 ; Configuration
+;   To reduce the likelihood of facing errors after changing the configuration values,
+;   refer to the AutoHotkey language syntax documentation here:
+;   https://www.autohotkey.com/docs/v2/Language.htm
 ; --------------------
 
 global globals := Map()
 globals["config"] := Map()
 
-; POLLING_INTERVAL_MS (Milliseconds):
-;   This is the interval which is how often this script monitors the processes and its windows.
-;   Setting lower values means it will check more often, but can be tasking for the system.
+; POLLING_INTERVAL_MS (Integer, Milliseconds)
+; Description:
+;   This defines how frequently the script monitors the processes and their windows.
+;   Setting extremely low values means more frequent checks, which can increase CPU usage and potentially burden the system.
+; Notes:
+;   0 will prevent the script from running.
+;   For reliable results, ensure that the POLLING_INTERVAL_MS do not exceed the ACTIVE_WINDOW_TIMEOUT_MS and INACTIVE_WINDOW_TIMEOUT_MS.
+;   The script will let you know about invalid values if found.
 ; Default:
 ; 10000 (10 seconds)
 globals["config"]["POLLING_INTERVAL_MS"] := 10000
 
-; ACTIVE_WINDOW_TIMEOUT_MS (Milliseconds):
+; ACTIVE_WINDOW_TIMEOUT_MS (Integer, Milliseconds)
+; Description:
 ;   The amount of time the user is considered idle in a monitored window they currently have in focus.
-;   When the user is found to be idle for more than or equal to this time,
-;   the configured task for the process (default or override) will be performed right away.
-;   If the user is still idling in that same monitored window after reaching this timeout,
-;   the window will be marked as inactive, and the task is rescheduled to execute after reaching INACTIVE_WINDOW_TIMEOUT_MS.
+;   When the user is found to be idle in a monitored window, for more than or equal to this amount of time,
+;   the configured task for the process (in config or process override) will be performed right away.
+;   If the user is still idling in that same monitored window, exceeding this ACTIVE_WINDOW_TIMEOUT_MS,
+;   the window will be marked as INACTIVE, and the task is rescheduled to execute after the configured INACTIVE_WINDOW_TIMEOUT_MS is met.
+; Notes:
+;   Setting low values less than 3000ms (3 seconds) can be very disruptive and the script will prevent you from doing that.
+;   For reliable results, ensure that the ACTIVE_WINDOW_TIMEOUT_MS is not less than the configured POLLING_INTERVAL_MS.
+;   The script will let you know about invalid values if found.
 ; Default:
 ; 60000 (60 seconds or 1 minute)
 globals["config"]["ACTIVE_WINDOW_TIMEOUT_MS"] := 60000
 
-; PROCESS_TASK (Function):
-;   This is where you can write what you want the script to do once the monitored window is in focus.
+; INACTIVE_WINDOW_TIMEOUT_MS (Integer, Milliseconds)
+; Description:
+;   The amount of time the user is absent from a monitored window.
+;   When the monitored window's been inactive for more than or equal to this amount of time,
+;   the script will perform its task and repeat this.
+; Notes:
+;   Setting low values less than 3000ms (3 seconds) can be very disruptive and the script will prevent you from doing that.
+;   For reliable results, ensure that the INACTIVE_WINDOW_TIMEOUT_MS is not less than the configured POLLING_INTERVAL_MS.
+;   The script will let you know about invalid values if found.
+; Default:
+; 180000 (180 seconds or 3 minutes)
+globals["config"]["INACTIVE_WINDOW_TIMEOUT_MS"] := 180000
+
+; TASK_INPUT_BLOCK (Boolean)
+; Description:
+;   This tells the script whether you want to block any input temporarily when the tasks are being performed while it shuffles
+;   through the monitored windows.
+; Notes:
+;   This requires administrator permissions and is therefore disabled by default.
+;   If input is not blocked, keystrokes from the user from interacting other windows
+;   may 'leak' into the monitored window when the script moves it into focus.
+; Default:
+; false
+globals["config"]["TASK_INPUT_BLOCK"] := false
+
+; PROCESS_TASK (Arrow Function)
+; Description:
+;   This is where you can write what you want the script to do once the the monitored process' window is in focus.
+; Notes:
 ;   For most games, delay of 15ms-50ms is generally enough for the the game to read simulated keypresses.
-;   Having it pressed down, then a very short delay before it is released up
+;   Having it press down, then add a short delay before it is released up.
 ;   Otherwise, some of your simulated inputs may go through and sometimes not.
 ;   Read more about it this here:
 ;   https://www.reddit.com/r/AutohotkeyCheats/comments/svseph/how_to_make_ahk_work_with_games_the_basics/
@@ -49,26 +89,10 @@ globals["config"]["PROCESS_TASK"] := () => (
     Send("{Space Up}")
 )
 
-; INACTIVE_WINDOW_TIMEOUT_MS (Milliseconds):
-;   The amount of time the user is absent from the monitored window.
-;   If the user is still absent from the monitored window for more than or equal to this time,
-;   the script will perform its task and repeat this.
-; Default:
-; 180000 (180 seconds or 3 minutes)
-globals["config"]["INACTIVE_WINDOW_TIMEOUT_MS"] := 180000
-
-; IS_INPUT_BLOCK (Boolean):
-;   This tells the script whether you want to block any input temporarily while it shuffles
-;   through the monitored windows when it performs their tasks.
-;   This requires administrator permissions and is therefore disabled by default.
-;   If input is not blocked, keystrokes from the user from interacting other windows
-;   may 'leak' into the monitored window when the script moves it into focus.
-; Default:
-; false
-globals["config"]["IS_INPUT_BLOCK"] := false
-
-; MONITOR_LIST (String Array):
-;   This is a list of processes that the script will montior.
+; MONITOR_LIST (String Array)
+; Description:
+;   This is the list of processes that the script will monitor for window activity.
+; Notes:
 ;   Any windows that do not belong to any of these processes will be ignored.
 ; Default:
 ; [
@@ -82,11 +106,13 @@ globals["config"]["MONITOR_LIST"] := [
     "wordpad.exe"
 ]
 
-; PROCESS_OVERRIDES (Associative Array):
+; PROCESS_OVERRIDES (Associative Array)
+; Description:
 ;   This allows you to specify specific values of ACTIVE_WINDOW_TIMEOUT_MS, INACTIVE_WINDOW_TIMEOUT_MS,
-;   PROCESS_TASK and IS_INPUT_BLOCK for specific processes. This is helpful if different
-;   games consider you AFK at wildly different times, or if the function to
-;   reset the AFK timer does not work as well across different applications.
+;   PROCESS_TASK and TASK_INPUT_BLOCK for specific processes.
+; Notes:
+;   This is helpful if different games consider you AFK at wildly different times, or if the function to
+;   reset their AFK timers does not work as well across different applications.
 ;   For the overrides to work, include the overriden process' name to the MONITOR_LIST.
 ;   This is not the monitor list.
 ; Default:
@@ -97,7 +123,7 @@ globals["config"]["MONITOR_LIST"] := [
 ;             "ACTIVE_WINDOW_TIMEOUT_MS", 120000,
 ;             ; 10 minutes
 ;             "INACTIVE_WINDOW_TIMEOUT_MS", 600000,
-;             "IS_INPUT_BLOCK", false,
+;             "TASK_INPUT_BLOCK", false,
 ;             "PROCESS_TASK", () => (
 ;                 Send("{Space Down}")
 ;                 Sleep(20)
@@ -111,7 +137,7 @@ globals["config"]["MONITOR_LIST"] := [
 ;             "ACTIVE_WINDOW_TIMEOUT_MS", 15000,
 ;             ; 30 seconds
 ;             "INACTIVE_WINDOW_TIMEOUT_MS", 30000,
-;             "IS_INPUT_BLOCK", false,
+;             "TASK_INPUT_BLOCK", false,
 ;             "PROCESS_TASK", () => (
 ;                 Send("1")
 ;             )
@@ -123,7 +149,7 @@ globals["config"]["MONITOR_LIST"] := [
 ;             "ACTIVE_WINDOW_TIMEOUT_MS", 15000,
 ;             ; 30 seconds
 ;             "INACTIVE_WINDOW_TIMEOUT_MS", 30000,
-;             "IS_INPUT_BLOCK", false,
+;             "TASK_INPUT_BLOCK", false,
 ;             "PROCESS_TASK", () => (
 ;                 Send("1")
 ;             )
@@ -137,7 +163,7 @@ globals["config"]["PROCESS_OVERRIDES"] := Map(
             "ACTIVE_WINDOW_TIMEOUT_MS", 120000,
             ; 10 minutes
             "INACTIVE_WINDOW_TIMEOUT_MS", 600000,
-            "IS_INPUT_BLOCK", false,
+            "TASK_INPUT_BLOCK", false,
             "PROCESS_TASK", () => (
                 Send("{Space Down}")
                 Sleep(20)
@@ -151,7 +177,7 @@ globals["config"]["PROCESS_OVERRIDES"] := Map(
             "ACTIVE_WINDOW_TIMEOUT_MS", 15000,
             ; 30 seconds
             "INACTIVE_WINDOW_TIMEOUT_MS", 30000,
-            "IS_INPUT_BLOCK", false,
+            "TASK_INPUT_BLOCK", false,
             "PROCESS_TASK", () => (
                 Send("1")
             )
@@ -163,7 +189,7 @@ globals["config"]["PROCESS_OVERRIDES"] := Map(
             "ACTIVE_WINDOW_TIMEOUT_MS", 15000,
             ; 30 seconds
             "INACTIVE_WINDOW_TIMEOUT_MS", 30000,
-            "IS_INPUT_BLOCK", false,
+            "TASK_INPUT_BLOCK", false,
             "PROCESS_TASK", () => (
                 Send("1")
             )
@@ -175,9 +201,9 @@ globals["config"]["PROCESS_OVERRIDES"] := Map(
 ; Script
 ; --------------------
 
-logDebug(str)
+logDebug(text)
 {
-    OutputDebug("[" A_Now "] [DEBUG] " str "")
+    OutputDebug("[" A_Now "] [DEBUG] " text "")
 }
 
 validateConfigAndOverrides()
@@ -185,26 +211,27 @@ validateConfigAndOverrides()
     invalidValuesMsg := ""
     isConfigPass := true
     isOverridePass := true
-    pollingIntervalMs := globals["config"]["POLLING_INTERVAL_MS"]
 
+    pollingIntervalMs := globals["config"]["POLLING_INTERVAL_MS"]
     ; Check if POLLING_INTERVAL_MS is less than or equal to 0
     if (pollingIntervalMs <= 0)
     {
         MsgBox("ERROR: The configured polling rate is less than or equal to 0. The script will exit immediately.", , "OK Iconx")
         ExitApp(1)
     }
+    
+    activeWindowTimeoutMs := globals["config"]["ACTIVE_WINDOW_TIMEOUT_MS"]
+    if (pollingIntervalMs > activeWindowTimeoutMs)
+    {
+        invalidValuesMsg .= "[Config]`nPOLLING_INTERVAL_MS (" pollingIntervalMs "ms) > ACTIVE_WINDOW_TIMEOUT_MS (" activeWindowTimeoutMs "ms)`nPolling rate must be lower than this setting!`n`n"
+        isConfigPass := false
+    }
+
     inactiveWindowTimeoutMs := globals["config"]["INACTIVE_WINDOW_TIMEOUT_MS"]
     ; Validate the main configuration settings
     if (pollingIntervalMs > inactiveWindowTimeoutMs)
     {
         invalidValuesMsg .= "[Config]`nPOLLING_INTERVAL_MS (" pollingIntervalMs "ms) > INACTIVE_WINDOW_TIMEOUT_MS (" inactiveWindowTimeoutMs "ms)`nPolling rate must be lower than this setting!`n`n"
-        isConfigPass := false
-    }
-
-    activeWindowTimeoutMs := globals["config"]["ACTIVE_WINDOW_TIMEOUT_MS"]
-    if (pollingIntervalMs > activeWindowTimeoutMs)
-    {
-        invalidValuesMsg .= "[Config]`nPOLLING_INTERVAL_MS (" pollingIntervalMs "ms) > ACTIVE_WINDOW_TIMEOUT_MS (" activeWindowTimeoutMs "ms)`nPolling rate must be lower than this setting!`n`n"
         isConfigPass := false
     }
 
@@ -226,15 +253,15 @@ validateConfigAndOverrides()
     for process_name, process in globals["config"]["PROCESS_OVERRIDES"]
     {
         overrides := process["overrides"]
-        if (overrides.Has("INACTIVE_WINDOW_TIMEOUT_MS") && pollingIntervalMs > overrides["INACTIVE_WINDOW_TIMEOUT_MS"])
+        if (overrides.Has("ACTIVE_WINDOW_TIMEOUT_MS") && (pollingIntervalMs > overrides["ACTIVE_WINDOW_TIMEOUT_MS"]))
+            {
+                invalidValuesMsg .= "[Override of " process_name "]`nPOLLING_INTERVAL_MS (" pollingIntervalMs "ms) > ACTIVE_WINDOW_TIMEOUT_MS (" overrides["ACTIVE_WINDOW_TIMEOUT_MS"] "ms)`nPolling rate must be lower than this override!`n"
+                isOverridePass := false
+            }
+
+        if (overrides.Has("INACTIVE_WINDOW_TIMEOUT_MS") && (pollingIntervalMs > overrides["INACTIVE_WINDOW_TIMEOUT_MS"]))
         {
             invalidValuesMsg .= "[Override of " process_name "]`nPOLLING_INTERVAL_MS (" pollingIntervalMs "ms) > INACTIVE_WINDOW_TIMEOUT_MS (" overrides["INACTIVE_WINDOW_TIMEOUT_MS"] "ms)`nPolling rate must be lower than this override!`n`n"
-            isOverridePass := false
-        }
-
-        if (overrides.Has("ACTIVE_WINDOW_TIMEOUT_MS") && pollingIntervalMs > overrides["ACTIVE_WINDOW_TIMEOUT_MS"])
-        {
-            invalidValuesMsg .= "[Override of " process_name "]`nPOLLING_INTERVAL_MS (" pollingIntervalMs "ms) > ACTIVE_WINDOW_TIMEOUT_MS (" overrides["ACTIVE_WINDOW_TIMEOUT_MS"] "ms)`nPolling rate must be lower than this override!`n"
             isOverridePass := false
         }
 
@@ -259,16 +286,16 @@ validateConfigAndOverrides()
 
 requestElevation()
 {
-    ; Admin already, do nothing
+    ; Ran as admin already, do nothing
     if (A_IsAdmin)
     {
         return
     }
-    isAdminRequire := globals["config"]["IS_INPUT_BLOCK"]
 
+    isAdminRequire := globals["config"]["TASK_INPUT_BLOCK"]
     for , process in globals["config"]["PROCESS_OVERRIDES"]
     {
-        if (process["overrides"].Has("IS_INPUT_BLOCK") && process["overrides"]["IS_INPUT_BLOCK"])
+        if (process["overrides"].Has("TASK_INPUT_BLOCK") && process["overrides"]["TASK_INPUT_BLOCK"])
         {
             isAdminRequire := true
         }
@@ -300,108 +327,11 @@ requestElevation()
     )
 }
 
-blockUserInput(option, isInputBlock)
-{
-    if (!isInputBlock || !A_IsAdmin)
-    {
-        return
-    }
-
-    BlockInput(option)
-    logDebug("@blockUserInput: " option " successful!")
-}
-
-getWindow(windowInfo, fallbackWindow)
-{
-    ; Window info is empty, use the fallbackWindow right away
-    if (!windowInfo.Count || !windowInfo)
-    {
-        return fallbackWindow
-    }
-
-    windowId := "ahk_id " windowInfo["ID"]
-    process_id := "ahk_pid " windowInfo["PID"]
-    process_name := "ahk_exe " windowInfo["EXE"]
-    if (WinExist(windowId))
-    {
-        return windowId
-    }
-
-    if (WinExist(process_id))
-    {
-        return process_id
-    }
-
-    if (WinExist(process_name))
-    {
-        return process_name
-    }
-
-    return fallbackWindow
-}
-
-getWindowInfo(window)
-{
-    windowInfo := Map()
-    if (!WinExist(window))
-    {
-        logDebug("[Window: " window "] Failed to retrieve window info! Window does not exist!")
-        return windowInfo
-    }
-
-    windowInfo["ID"] := WinGetID(window)
-    windowInfo["CLS"] := WinGetClass(window)
-    windowInfo["PID"] := WinGetPID(window)
-    windowInfo["EXE"] := WinGetProcessName(window)
-    windowInfo["TITLE"] := WinGetTitle(window)
-    return windowInfo
-}
-
-activateWindow(window)
-{
-    if (!WinExist(window))
-    {
-        logDebug("[Window: " window "] Failed to activate! Window does not exist!")
-        return false
-    }
-
-    if (!isWindowTargetable(WinExist(window)))
-    {
-        logDebug("[Window: " window "] Failed to activate! Window is not targetable!")
-        return false
-    }
-
-    WinActivate(window)
-    value := WinWaitActive(window, , 0.30)
-    if (value = 0)
-    {
-        logDebug("[Window: " window "] Failed to activate! Window timed out!")
-        return false
-    }
-
-    logDebug("[Window: " window "] Window successfully activated!")
-    return true
-}
-
-; Find and return a specific attribute for a process, prioritising values in PROCESS_OVERRIDES.
-; If an override has not been setup for that process, the default value from the configuration for all processes will be used instead.
-getAttributeValue(attributeName, process_name)
-{
-    processOverrides := globals["config"]["PROCESS_OVERRIDES"]
-    if (processOverrides.Has(process_name))
-    {
-        if (processOverrides[process_name]["overrides"].Has(attributeName))
-        {
-            return processOverrides[process_name]["overrides"][attributeName]
-        }
-    }
-    return globals["config"][attributeName]
-}
 
 updateSystemTray(processes)
 {
-    monitoredWindows := globals["states"]["Counters"]["monitored"]
-    managedWindows := globals["states"]["Counters"]["managed"]
+    monitoredWindows := globals["states"]["Tray"]["Counters"]["monitored"]
+    managedWindows := globals["states"]["Tray"]["Counters"]["managed"]
     ; Only iterate when there are processes
     if (processes.Count > 0)
     {
@@ -414,15 +344,15 @@ updateSystemTray(processes)
                 monitoredWindows[process_name] := 0
                 managedWindows[process_name] := 0
                 ; For every window in this process' windows map
-                ; Count how many of those are are managed and monitored
+                ; Count how many of those are are active and inactive
                 for , window in windows
                 {
                     windowStatus := window["status"]
-                    if (windowStatus = "MONITORED")
+                    if (windowStatus = "ACTIVE")
                     {
                         monitoredWindows[process_name] += 1
                     }
-                    else if (windowStatus = "MANAGED")
+                    else if (windowStatus = "INACTIVE")
                     {
                         managedWindows[process_name] += 1
                     }
@@ -514,12 +444,109 @@ updateSystemTray(processes)
     }
 }
 
+blockUserInput(option, isInputBlock)
+{
+    if (!isInputBlock || !A_IsAdmin)
+    {
+        return
+    }
+
+    BlockInput(option)
+    logDebug("@blockUserInput: " option " successful!")
+}
+
+getWindow(windowInfo, fallbackWindow)
+{
+    ; Window info is empty, use the fallbackWindow right away
+    if (!windowInfo.Count || !windowInfo)
+    {
+        return fallbackWindow
+    }
+
+    windowId := "ahk_id " windowInfo["ID"]
+    process_id := "ahk_pid " windowInfo["PID"]
+    process_name := "ahk_exe " windowInfo["EXE"]
+    if (WinExist(windowId))
+    {
+        return windowId
+    }
+
+    if (WinExist(process_id))
+    {
+        return process_id
+    }
+
+    if (WinExist(process_name))
+    {
+        return process_name
+    }
+
+    return fallbackWindow
+}
+
+getWindowInfo(window)
+{
+    windowInfo := Map()
+    if (!WinExist(window))
+    {
+        logDebug("[Window: " window "] Failed to retrieve window info! Window does not exist!")
+        return windowInfo
+    }
+
+    windowInfo["ID"] := WinGetID(window)
+    windowInfo["CLS"] := WinGetClass(window)
+    windowInfo["PID"] := WinGetPID(window)
+    windowInfo["EXE"] := WinGetProcessName(window)
+    windowInfo["TITLE"] := WinGetTitle(window)
+    return windowInfo
+}
+
+activateWindow(window)
+{
+    if (!WinExist(window))
+    {
+        logDebug("[Window: " window "] Failed to activate! Window does not exist!")
+        return false
+    }
+
+    if (!isWindowTargetable(window))
+    {
+        logDebug("[Window: " window "] Failed to activate! Window is not targetable!")
+        return false
+    }
+
+    WinActivate(window)
+    value := WinWaitActive(window, , 0.30)
+    if (value = 0)
+    {
+        logDebug("[Window: " window "] Failed to activate! Window timed out!")
+        return false
+    }
+
+    logDebug("[Window: " window "] Window successfully activated!")
+    return true
+}
+
+; Find and return a specific attribute for a process, prioritising values in PROCESS_OVERRIDES.
+; If an override has not been setup for that process, the default value from the configuration for all processes will be used instead.
+getAttributeValue(attributeName, process_name)
+{
+    processOverrides := globals["config"]["PROCESS_OVERRIDES"]
+    if (processOverrides.Has(process_name))
+    {
+        if (processOverrides[process_name]["overrides"].Has(attributeName))
+        {
+            return processOverrides[process_name]["overrides"][attributeName]
+        }
+    }
+    return globals["config"][attributeName]
+}
+
 ; Checks if a window is targetable
 ; tysm! https://stackoverflow.com/questions/35971452/what-is-the-right-way-to-send-alt-tab-in-ahk/36008086#36008086
 ; Helps filtering out the windows the script should not interact with
-isWindowTargetable(HWND)
+isWindowTargetable(window)
 {
-    window := "ahk_id " HWND
     ; https://www.autohotkey.com/docs/v2/misc/Styles.htm
     windowStyle := WinGetStyle(window)
     ; Windows with the WS_POPUP style (0x80000000)
@@ -587,12 +614,13 @@ isWindowTargetable(HWND)
     return true
 }
 
-showTraytip(text, title, options, duration) {
+showTraytip(text, title, options, duration)
+{
     TrayTip(text, title, options)
     SetTimer(TrayTip, duration)
 }
 
-performProcessTask(windowId, invokeTask, isInputBlock)
+performProcessTask(windowId, invokeProcessTask, isInputBlock)
 {
     isWindowActivateSucess := false
     activeWindow := "A"
@@ -604,7 +632,7 @@ performProcessTask(windowId, invokeTask, isInputBlock)
     ; User is PRESENT on the monitored window, perform the task right away
     if (WinActive(monitoredWindow))
     {
-        invokeTask()
+        invokeProcessTask()
         logDebug("[" monitoredWindowInfo["EXE"] "] [Window ID: " monitoredWindowInfo["ID"] "] Active Monitored Window invokeTask() successful!")
         logDebug("[" monitoredWindowInfo["EXE"] "] [Window ID: " monitoredWindowInfo["ID"] "] @performProcessTask: FINISHED")
         return
@@ -626,14 +654,14 @@ performProcessTask(windowId, invokeTask, isInputBlock)
             isWindowActivateSucess := activateWindow(monitoredWindow)
             if (!isWindowActivateSucess)
             {
-                logDebug("[" monitoredWindowInfo["EXE"] "] [Window ID: " monitoredWindowInfo["ID"] "] Inactive Monitored Window invokeTask() failed!")
+                logDebug("[" monitoredWindowInfo["EXE"] "] [Window ID: " monitoredWindowInfo["ID"] "] Inactive Monitored Window invokeProcessTask() failed!")
                 WinSetTransparent("Off", monitoredWindow)
                 showTraytip("The script has failed to perform a task to " monitoredWindowInfo["EXE"] "'s monitored window: '" monitoredWindowInfo["TITLE"] "' (" monitoredWindowInfo["ID"] ")", "Anti-AFK has failed to perform a process' task", "Iconx", -35000)
                 return
             }
-            invokeTask()
+            invokeProcessTask()
             WinMoveBottom(monitoredWindow)
-            logDebug("[" monitoredWindowInfo["EXE"] "] [Window ID: " monitoredWindowInfo["ID"] "] Inactive Monitored Window invokeTask() successful!")
+            logDebug("[" monitoredWindowInfo["EXE"] "] [Window ID: " monitoredWindowInfo["ID"] "] Inactive Monitored Window invokeProcessTask() successful!")
             return
         }
 
@@ -666,17 +694,17 @@ performProcessTask(windowId, invokeTask, isInputBlock)
         ; into whatever the user is currently doing on other windows
         if (WinActive(oldActiveWindow) || !isWindowActivateSucess)
         {
-            logDebug("[" monitoredWindowInfo["EXE"] "] [Window ID: " monitoredWindowInfo["ID"] "] Inactive Monitored Window invokeTask() failed!")
+            logDebug("[" monitoredWindowInfo["EXE"] "] [Window ID: " monitoredWindowInfo["ID"] "] Inactive Monitored Window invokeProcessTask() failed!")
             WinSetTransparent("Off", monitoredWindow)
             showTraytip("The script has failed to perform a task to " monitoredWindowInfo["EXE"] "'s monitored window: '" monitoredWindowInfo["TITLE"] "' (" monitoredWindowInfo["ID"] ")", "Anti-AFK has failed to perform a process' task", "Iconx", -35000)
             return
         }
 
-        invokeTask()
+        invokeProcessTask()
         ; There is a condition in the try clause block that checks if the monitored window is active already. If I move this in the finally clause,
         ; it will also move the active monitored window to the bottom too which isn't the intended behavior
         WinMoveBottom(monitoredWindow)
-        logDebug("[" monitoredWindowInfo["EXE"] "] [Window ID: " monitoredWindowInfo["ID"] "] Inactive Monitored Window invokeTask() successful!")
+        logDebug("[" monitoredWindowInfo["EXE"] "] [Window ID: " monitoredWindowInfo["ID"] "] Inactive Monitored Window invokeProcessTask() successful!")
     }
     finally
     {
@@ -698,9 +726,17 @@ performProcessTask(windowId, invokeTask, isInputBlock)
     }
 }
 
+setNewWindowStatus(status, window)
+{
+    window["status"] := status
+    window["lastActivityTime"] := A_TickCount
+    window["elapsedInactivityTime"] := 0
+}
+
 registerWindows(windows, process_name)
 {
-    ; No open windows for this process, return the windows map as empty in that case
+    monitoredProcess := "ahk_exe " process_name
+    ; No windows found under this process, return the windows map immediately as empty in that case
     if (WinGetCount("ahk_exe " process_name) < 1)
     {
         return windows
@@ -708,12 +744,11 @@ registerWindows(windows, process_name)
 
     ; Retrieve all found unique ids (HWNDs) for this process' windows
     windowIds := WinGetList("ahk_exe " process_name)
-    ; For every window id found under the process, set a window map for that process' windows map
-    ; only if it meets certain conditions
+    ; For every window id found under this process
     for , windowId in windowIds
     {
         ; This window is not targetable, do not set a map for this window id, skip it
-        if (!isWindowTargetable(WinExist("ahk_id " windowId)))
+        if (!isWindowTargetable("ahk_id " windowId))
         {
             continue
         }
@@ -726,9 +761,8 @@ registerWindows(windows, process_name)
 
         ; In this process' windows map, set a new map for this window id
         windows[windowId] := Map()
-        windows[windowId]["status"] := "MONITORED"
-        windows[windowId]["lastInactiveTick"] := A_TickCount
-        windows[windowId]["elapsedInactivityTime"] := 0
+        ; Initially mark it as ACTIVE
+        setNewWindowStatus("ACTIVE", windows[windowId])
         logDebug("[" process_name "] [Window ID: " windowId "] Created window map")
     }
 
@@ -738,57 +772,55 @@ registerWindows(windows, process_name)
 
 monitorWindows(windows, process_name)
 {
-    inactiveWindowTimeoutMs := getAttributeValue("INACTIVE_WINDOW_TIMEOUT_MS", process_name)
     activeWindowTimeoutMs := getAttributeValue("ACTIVE_WINDOW_TIMEOUT_MS", process_name)
-    invokeTask := getAttributeValue("PROCESS_TASK", process_name)
-    isInputBlock := getAttributeValue("IS_INPUT_BLOCK", process_name)
+    inactiveWindowTimeoutMs := getAttributeValue("INACTIVE_WINDOW_TIMEOUT_MS", process_name)
+    invokeProcessTask := getAttributeValue("PROCESS_TASK", process_name)
+    isInputBlock := getAttributeValue("TASK_INPUT_BLOCK", process_name)
 
     ; For every window in this process' windows
     for windowId, window in windows
     {
+        monitoredWindow := "ahk_id " windowId
         ; This monitored window no longer exists, most likely closed by the user, delete it from the windows map
-        if (!WinExist("ahk_id " windowId))
+        if (!WinExist(monitoredWindow))
         {
             logDebug("[" process_name "] [Window ID: " windowId "] Deleted window map as it was closed by the user!")
             windows.Delete(windowId)
             continue
         }
 
+        isWindowActive := WinActive(monitoredWindow)
         ; User is PRESENT in this monitored window
-        if (WinActive("ahk_id " windowId))
+        ; User is NOT IDLING in this monitored window
+        if (isWindowActive && (A_TimeIdlePhysical <= activeWindowTimeoutMs))
         {
-            ; User is NOT IDLING in this monitored window
-            if (A_TimeIdlePhysical <= activeWindowTimeoutMs)
+            ; elapsedInactivityTime's already been reset, reset only the lastActivityTime
+            if (window["elapsedInactivityTime"] = 0)
             {
-                ; Elapsed time is already reset, do not reset other properties except A_TickCount
-                if (window["elapsedInactivityTime"] = 0)
-                {
-                    window["lastInactiveTick"] := A_TickCount
-                    continue
-                }
-                window["status"] := "MONITORED"
-                window["lastInactiveTick"] := A_TickCount
-                window["elapsedInactivityTime"] := 0
-                logDebug("[" process_name "] [Window ID: " windowId "] Active Monitored Window: User is NOT IDLE! Timers' been reset!")
+                window["lastActivityTime"] := A_TickCount
                 continue
             }
 
-            ; User is IDLING in this monitored window for more than or equal to the configured ACTIVE_WINDOW_TIMEOUT_MS
-            if (window["status"] = "MONITORED")
-            {
-                logDebug("[" process_name "] [Window ID: " windowId "] Active Monitored Window: User is IDLE!")
-                ; Perform this window's task set by the user for this process
-                performProcessTask(windowId, invokeTask, isInputBlock)
-                ; Once the task is done, reset its properties then mark it as MANAGED
-                window["status"] := "MANAGED"
-                window["lastInactiveTick"] := A_TickCount
-                window["elapsedInactivityTime"] := 0
-                continue
-            }
+            ; Once the task is done, reset it then mark it as ACTIVE
+            setNewWindowStatus("ACTIVE", window)
+            logDebug("[" process_name "] [Window ID: " windowId "] Active Monitored Window: User is NOT IDLE! Timers' been reset!")
+            continue
         }
 
-        ; The user is ABSENT in this monitored window, they're present in a different window
-        window["elapsedInactivityTime"] := A_TickCount - window["lastInactiveTick"]
+        ; User is PRESENT in this monitored window
+        ; User is IDLING in this monitored window for more than or equal to the configured ACTIVE_WINDOW_TIMEOUT_MS
+        if (isWindowActive && (window["status"] = "ACTIVE"))
+        {
+            logDebug("[" process_name "] [Window ID: " windowId "] Active Monitored Window: User is IDLE!")
+            ; Perform the configured task for this monitored window's process.
+            performProcessTask(windowId, invokeProcessTask, isInputBlock)
+            ; Once the task is done, reset this monitored window then mark it as INACTIVE
+            setNewWindowStatus("INACTIVE", window)
+            continue
+        }
+
+        ; User is ABSENT in this monitored window, they're present in a different window
+        window["elapsedInactivityTime"] := A_TickCount - window["lastActivityTime"]
         if (window["elapsedInactivityTime"] > 0)
         {
             logDebug("[" process_name "] [Window ID: " windowId "] Window is inactive for: " window["elapsedInactivityTime"] "ms / " inactiveWindowTimeoutMs "ms")
@@ -798,11 +830,9 @@ monitorWindows(windows, process_name)
         if (window["elapsedInactivityTime"] >= inactiveWindowTimeoutMs)
         {
             ; Perform the configured task for this monitored window's process.
-            performProcessTask(windowId, invokeTask, isInputBlock)
-            ; Once the task is done, reset its properties then mark it as MANAGED
-            window["status"] := "MANAGED"
-            window["lastInactiveTick"] := A_TickCount
-            window["elapsedInactivityTime"] := 0
+            performProcessTask(windowId, invokeProcessTask, isInputBlock)
+            ; Once the task is done, reset this monitored window then mark it as INACTIVE
+            setNewWindowStatus("INACTIVE", window)
         }
     }
     ; Monitoring operations END here
@@ -810,21 +840,22 @@ monitorWindows(windows, process_name)
 
 registerProcesses(processes, monitorList)
 {
+    ; For every process name configured by the user in the monitor list
     for , process_name in monitorList
     {
-        ; User is not running this process from the monitor list, do not set
+        ; User is not running this process from the monitor list, do not reset
         if (!ProcessExist(process_name))
         {
             continue
         }
 
-        ; This process already has a map, do not set
+        ; This process already has a map, do not reset
         if (processes.has(process_name))
         {
             continue
         }
 
-        ; In this processes map, set a map for this process name
+        ; In the processes map, set a new map for this process name
         processes[process_name] := Map()
         ; and also with an empty windows map
         processes[process_name]["windows"] := Map()
@@ -843,7 +874,7 @@ monitorProcesses()
     {
         for process_name, process in processes
         {
-            ; User is no longer running this process and was most likely closed, delete it from the processes map
+            ; This monitored process no longer exists, most likely closed by the user, delete it from the processes map
             if (!ProcessExist(process_name))
             {
                 logDebug("[" process_name "] Deleted process map as it was closed by the user!")
@@ -875,10 +906,10 @@ InstallMouseHook(true)
 KeyHistory(0)
 globals["states"] := Map()
 globals["states"]["Processes"] := Map()
-globals["states"]["Counters"] := Map()
-globals["states"]["Counters"]["monitored"] := Map()
-globals["states"]["Counters"]["managed"] := Map()
 globals["states"]["Tray"] := Map()
+globals["states"]["Tray"]["Counters"] := Map()
+globals["states"]["Tray"]["Counters"]["monitored"] := Map()
+globals["states"]["Tray"]["Counters"]["managed"] := Map()
 globals["states"]["Tray"]["lastIconNumber"] := 0
 globals["states"]["Tray"]["lastIconTooltipText"] := ""
 ; Initiate the first poll
