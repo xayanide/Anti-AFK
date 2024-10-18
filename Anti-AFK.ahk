@@ -216,10 +216,21 @@ validateConfigAndOverrides()
     ; Check if POLLING_INTERVAL_MS is less than or equal to 0
     if (pollingIntervalMs <= 0)
     {
-        MsgBox("ERROR: The configured polling rate is less than or equal to 0. The script will exit immediately.", , "OK Iconx")
+        MsgBox("ERROR: The configured POLLING_INTERVAL_MS (" globals["config"]["POLLING_INTERVAL_MS"] "ms) is less than or equal to 0. The script will exit immediately.", , "OK Iconx")
         ExitApp(1)
     }
-    
+
+    ; Check if POLLING_INTERVAL_MS is less than 1 second.
+    if (pollingIntervalMs < 1000)
+    {
+        userInput := MsgBox("WARNING: The configured POLLING_INTERVAL_MS (" globals["config"]["POLLING_INTERVAL_MS"] "ms) is below 1000ms! This can significantly increase CPU usage and put a strain on your system's resources!`nWould you like to continue?", , "YesNo Default2 Icon!")
+        if (userInput = "No")
+        {
+            ExitApp(0)
+        }
+    }
+
+
     activeWindowTimeoutMs := globals["config"]["ACTIVE_WINDOW_TIMEOUT_MS"]
     if (pollingIntervalMs > activeWindowTimeoutMs)
     {
@@ -254,10 +265,10 @@ validateConfigAndOverrides()
     {
         overrides := process["overrides"]
         if (overrides.Has("ACTIVE_WINDOW_TIMEOUT_MS") && (pollingIntervalMs > overrides["ACTIVE_WINDOW_TIMEOUT_MS"]))
-            {
-                invalidValuesMsg .= "[Override of " process_name "]`nPOLLING_INTERVAL_MS (" pollingIntervalMs "ms) > ACTIVE_WINDOW_TIMEOUT_MS (" overrides["ACTIVE_WINDOW_TIMEOUT_MS"] "ms)`nPolling rate must be lower than this override!`n"
-                isOverridePass := false
-            }
+        {
+            invalidValuesMsg .= "[Override of " process_name "]`nPOLLING_INTERVAL_MS (" pollingIntervalMs "ms) > ACTIVE_WINDOW_TIMEOUT_MS (" overrides["ACTIVE_WINDOW_TIMEOUT_MS"] "ms)`nPolling rate must be lower than this override!`n"
+            isOverridePass := false
+        }
 
         if (overrides.Has("INACTIVE_WINDOW_TIMEOUT_MS") && (pollingIntervalMs > overrides["INACTIVE_WINDOW_TIMEOUT_MS"]))
         {
@@ -321,12 +332,11 @@ requestElevation()
     }
 
     ; User canceled the UAC prompt
-    MsgBox("This requires Anti-AFK to be ran as administrator to block inputs!`nBLOCK_INPUT has been temporarily disabled.",
-        "Unable to block keystrokes",
+    MsgBox("Unable to block keystrokes. This requires Anti-AFK to be ran as administrator to block inputs!`nBLOCK_INPUT has been temporarily disabled.",
+        ,
         "OK Icon!"
     )
 }
-
 
 updateSystemTray(processes)
 {
@@ -822,7 +832,7 @@ monitorWindows(windows, process_name)
             continue
         }
         DllCall("QueryPerformanceFrequency", "Int64*", &frequency := 0)
-        DllCall("QueryPerformanceCounter", "Int64*", &tickCount) 
+        DllCall("QueryPerformanceCounter", "Int64*", &tickCount)
         ; User is ABSENT in this monitored window, they're present in a different window
         window["elapsedInactivityTime"] := (tickCount - window["lastActivityTime"]) / frequency * 1000
         if (window["elapsedInactivityTime"] > 0)
