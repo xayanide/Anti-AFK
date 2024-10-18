@@ -904,7 +904,7 @@ monitorWindows(windows, process_name)
         window["elapsedInactivityTime"] := (tickCount - window["lastActivityTime"]) / frequency * 1000
         if (window["elapsedInactivityTime"] > 0)
         {
-            logDebug("[" process_name "] [Window ID: " windowId "] Window is inactive for: " window["elapsedInactivityTime"] "ms / " inactiveWindowTimeoutMs "ms")
+            logDebug("[" process_name "] [Window ID: " windowId "] Window is inactive for: " Round(window["elapsedInactivityTime"], 2) "ms / " inactiveWindowTimeoutMs "ms")
         }
 
         ; This monitored window's been inactive for more than or equal to the configured INACTIVE_WINDOW_TIMEOUT_MS
