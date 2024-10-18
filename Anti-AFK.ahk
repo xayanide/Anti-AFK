@@ -729,7 +729,8 @@ performProcessTask(windowId, invokeProcessTask, isInputBlock)
 setNewWindowStatus(status, window)
 {
     window["status"] := status
-    window["lastActivityTime"] := A_TickCount
+    DllCall("QueryPerformanceCounter", "Int64*", &tickCount := 0)
+    window["lastActivityTime"] := tickCount
     window["elapsedInactivityTime"] := 0
 }
 
@@ -818,9 +819,10 @@ monitorWindows(windows, process_name)
             setNewWindowStatus("INACTIVE", window)
             continue
         }
-
+        DllCall("QueryPerformanceFrequency", "Int64*", &frequency := 0)
+        DllCall("QueryPerformanceCounter", "Int64*", &tickCount := 0) 
         ; User is ABSENT in this monitored window, they're present in a different window
-        window["elapsedInactivityTime"] := A_TickCount - window["lastActivityTime"]
+        window["elapsedInactivityTime"] := (tickCount - window["lastActivityTime"]) / frequency * 1000
         if (window["elapsedInactivityTime"] > 0)
         {
             logDebug("[" process_name "] [Window ID: " windowId "] Window is inactive for: " window["elapsedInactivityTime"] "ms / " inactiveWindowTimeoutMs "ms")
