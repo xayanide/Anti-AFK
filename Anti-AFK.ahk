@@ -21,11 +21,15 @@ globals["config"] := Map()
 ;   Setting extremely low values means more frequent checks, which can increase CPU usage and potentially burden the system.
 ; Notes:
 ;   0 will prevent the script from running.
-;   For reliable results, ensure that the POLLING_INTERVAL_MS do not exceed the ACTIVE_WINDOW_TIMEOUT_MS and INACTIVE_WINDOW_TIMEOUT_MS.
+;   For reliable results, ensure that the POLLING_INTERVAL_MS does not exceed the ACTIVE_WINDOW_TIMEOUT_MS and INACTIVE_WINDOW_TIMEOUT_MS.
+;   Any polling interval that is exactly equal to ACTIVE_WINDOW_TIMEOUT_MS and INACTIVE_WINDOW_TIMEOUT_MS will guarantee zero excess time.
+;   Must ideally be a divisor of the two timeout values to ensure that the total duration calculated by the polling interval aligns perfectly with the timeout.
+;   To find the divisors of timeouts, list the numbers that divide the timeouts without leaving a remainder.
+;   Find the one that is common among them, that shall be your ideal polling interval.
 ;   The script will let you know about invalid values if found.
 ; Default:
-; 10000 (10 seconds)
-globals["config"]["POLLING_INTERVAL_MS"] := 10000
+; 5000 (5 seconds)
+globals["config"]["POLLING_INTERVAL_MS"] := 15000
 
 ; ACTIVE_WINDOW_TIMEOUT_MS (Integer, Milliseconds)
 ; Description:
@@ -206,9 +210,24 @@ logDebug(text)
     OutputDebug("[" A_Now "] [DEBUG] " text "")
 }
 
+; The calculated excess time of the polling interval and timeouts should be zero.
+; only use any polling interval that is equal to or less than the timeout,
+; as long as the total duration calculated does not exceed the timeout.
+calculateExcessTime(pollingIntervalMs, timeoutMs)
+{
+    totalDurationMs := Ceil(timeoutMs / pollingIntervalMs) * pollingIntervalMs
+    totalExcessTime := totalDurationMs - timeoutMs
+    logDebug("Polling Interval: " pollingIntervalMs " | Timeout: " timeoutMs " | Excess time: " totalExcessTime "")
+    if (totalExcessTime < 0)
+    {
+        totalExcessTime := 0
+    }
+    return totalExcessTime
+}
+
 validateConfigAndOverrides()
 {
-    invalidValuesMsg := ""
+    ; TODO: Simplify logic.
     isConfigPass := true
     isOverridePass := true
 
@@ -230,63 +249,111 @@ validateConfigAndOverrides()
         }
     }
 
-
+    ; Display the common divisors
     activeWindowTimeoutMs := globals["config"]["ACTIVE_WINDOW_TIMEOUT_MS"]
+    inactiveWindowTimeoutMs := globals["config"]["INACTIVE_WINDOW_TIMEOUT_MS"]
+
     if (pollingIntervalMs > activeWindowTimeoutMs)
     {
-        invalidValuesMsg .= "[Config]`nPOLLING_INTERVAL_MS (" pollingIntervalMs "ms) > ACTIVE_WINDOW_TIMEOUT_MS (" activeWindowTimeoutMs "ms)`nPolling rate must be lower than this setting!`n`n"
+        configMsg .= "- POLLING_INTERVAL_MS (" pollingIntervalMs "ms) > ACTIVE_WINDOW_TIMEOUT_MS (" activeWindowTimeoutMs "ms)`n"
+        configMsg .= "Polling interval must be lower than this setting!`n`n"
         isConfigPass := false
     }
 
-    inactiveWindowTimeoutMs := globals["config"]["INACTIVE_WINDOW_TIMEOUT_MS"]
     ; Validate the main configuration settings
     if (pollingIntervalMs > inactiveWindowTimeoutMs)
     {
-        invalidValuesMsg .= "[Config]`nPOLLING_INTERVAL_MS (" pollingIntervalMs "ms) > INACTIVE_WINDOW_TIMEOUT_MS (" inactiveWindowTimeoutMs "ms)`nPolling rate must be lower than this setting!`n`n"
+        configMsg .= "- POLLING_INTERVAL_MS (" pollingIntervalMs "ms) > INACTIVE_WINDOW_TIMEOUT_MS (" inactiveWindowTimeoutMs "ms)`n"
+        configMsg .= "Polling interval must be lower than this setting!`n`n"
         isConfigPass := false
     }
 
     ; Check if ACTIVE_WINDOW_TIMEOUT_MS is less than 3000 ms
     if (activeWindowTimeoutMs < 3000)
     {
-        invalidValuesMsg .= "[Config]`nACTIVE_WINDOW_TIMEOUT_MS (" activeWindowTimeoutMs "ms)`nMust be at least 3000ms! Because anything lower can be disruptive!`n`n"
+        configMsg .= "- ACTIVE_WINDOW_TIMEOUT_MS (" activeWindowTimeoutMs "ms)`n"
+        configMsg .= "Must be at least 3000ms!`n`n"
         isConfigPass := false
     }
 
     ; Check if INACTIVE_WINDOW_TIMEOUT_MS is less than 3000 ms
     if (inactiveWindowTimeoutMs < 3000)
     {
-        invalidValuesMsg .= "[Config]`nINACTIVE_WINDOW_TIMEOUT_MS (" inactiveWindowTimeoutMs "ms)`nMust be at least 3000ms! Because anything lower can be disruptive!`n`n"
+        configMsg .= "- INACTIVE_WINDOW_TIMEOUT_MS (" inactiveWindowTimeoutMs "ms)`n"
+        configMsg .= "Must be at least 3000ms!`n`n"
         isConfigPass := false
     }
 
+    ; Validate compatibility of POLLING_INTERVAL_MS to ACTIVE_WINDOW_TIMEOUT_MS
+    if (calculateExcessTime(pollingIntervalMs, activeWindowTimeoutMs) > 0)
+    {
+        configMsg .= "- POLLING_INTERVAL_MS (" pollingIntervalMs "ms) is incompatible with ACTIVE_WINDOW_TIMEOUT_MS (" activeWindowTimeoutMs "ms)`n"
+        configMsg .= "A monitored window is simulated to be detected " calculateExcessTime(pollingIntervalMs, activeWindowTimeoutMs) "ms late.`nConsider adjusting POLLING_INTERVAL_MS or the timeout values.`n`n"
+        isConfigPass := false
+    }
+
+    ; Validate compatibility of POLLING_INTERVAL_MS to INACTIVE_WINDOW_TIMEOUT_MS
+    if (calculateExcessTime(pollingIntervalMs, inactiveWindowTimeoutMs) > 0)
+    {
+        configMsg .= "- POLLING_INTERVAL_MS (" pollingIntervalMs "ms) is incompatible with INACTIVE_WINDOW_TIMEOUT_MS (" inactiveWindowTimeoutMs "ms)`n"
+        configMsg .= "A monitored window is simulated to be detected " calculateExcessTime(pollingIntervalMs, inactiveWindowTimeoutMs) "ms late.`nConsider adjusting POLLING_INTERVAL_MS or the timeout values.`n`n"
+        isConfigPass := false
+    }
+
+    overridesMsg := "Invalid overrides:`n"
     ; Validate monitor override settings
     for process_name, process in globals["config"]["PROCESS_OVERRIDES"]
     {
         overrides := process["overrides"]
+        overridesMsg .= "[" process_name "]`n"
         if (overrides.Has("ACTIVE_WINDOW_TIMEOUT_MS") && (pollingIntervalMs > overrides["ACTIVE_WINDOW_TIMEOUT_MS"]))
         {
-            invalidValuesMsg .= "[Override of " process_name "]`nPOLLING_INTERVAL_MS (" pollingIntervalMs "ms) > ACTIVE_WINDOW_TIMEOUT_MS (" overrides["ACTIVE_WINDOW_TIMEOUT_MS"] "ms)`nPolling rate must be lower than this override!`n"
+            overridesMsg .= "- POLLING_INTERVAL_MS (" pollingIntervalMs "ms) > ACTIVE_WINDOW_TIMEOUT_MS (" overrides["ACTIVE_WINDOW_TIMEOUT_MS"] "ms)`n"
+            overridesMsg .= "Polling interval must be lower than this override!`n`n"
             isOverridePass := false
         }
 
         if (overrides.Has("INACTIVE_WINDOW_TIMEOUT_MS") && (pollingIntervalMs > overrides["INACTIVE_WINDOW_TIMEOUT_MS"]))
         {
-            invalidValuesMsg .= "[Override of " process_name "]`nPOLLING_INTERVAL_MS (" pollingIntervalMs "ms) > INACTIVE_WINDOW_TIMEOUT_MS (" overrides["INACTIVE_WINDOW_TIMEOUT_MS"] "ms)`nPolling rate must be lower than this override!`n`n"
+            overridesMsg .= "- POLLING_INTERVAL_MS (" pollingIntervalMs "ms) > INACTIVE_WINDOW_TIMEOUT_MS (" overrides["INACTIVE_WINDOW_TIMEOUT_MS"] "ms)`n"
+            overridesMsg .= "Polling interval must be lower than this override!`n`n"
             isOverridePass := false
         }
 
-        ; Stop further checks if any override is invalid
-        if (!isOverridePass)
+        if (overrides.Has("ACTIVE_WINDOW_TIMEOUT_MS") && (calculateExcessTime(pollingIntervalMs, overrides["ACTIVE_WINDOW_TIMEOUT_MS"]) > 0))
         {
-            break
+            overridesMsg .= "- POLLING_INTERVAL_MS (" pollingIntervalMs "ms) is incompatible with ACTIVE_WINDOW_TIMEOUT_MS (" overrides["ACTIVE_WINDOW_TIMEOUT_MS"] "ms)`n"
+            overridesMsg .= "A monitored window is simulated to be detected " calculateExcessTime(pollingIntervalMs, overrides["ACTIVE_WINDOW_TIMEOUT_MS"]) "ms late.`nConsider adjusting POLLING_INTERVAL_MS or the timeout values.`n`n"
+            isOverridePass := false
         }
+
+        if (overrides.Has("INACTIVE_WINDOW_TIMEOUT_MS") && (calculateExcessTime(pollingIntervalMs, overrides["INACTIVE_WINDOW_TIMEOUT_MS"]) > 0))
+        {
+            overridesMsg .= "- POLLING_INTERVAL_MS (" pollingIntervalMs "ms) is incompatible with INACTIVE_WINDOW_TIMEOUT_MS (" overrides["INACTIVE_WINDOW_TIMEOUT_MS"] "ms)`n"
+            overridesMsg .= "A monitored window is simulated to be detected " calculateExcessTime(pollingIntervalMs, overrides["INACTIVE_WINDOW_TIMEOUT_MS"]) "ms late.`nConsider adjusting POLLING_INTERVAL_MS or the timeout values.`n`n"
+            isOverridePass := false
+        }
+
+        if (isOverridePass)
+        {
+            overridesMsg := "Invalid overrides:`n"
+        }
+    }
+
+    if (!isConfigPass)
+    {
+        mainMsg .= configMsg
+    }
+
+    if (!isOverridePass)
+    {
+        mainMsg .= overridesMsg
     }
 
     ; If any validation fails, show the invalid values in the message box and exit the app
     if (!isConfigPass || !isOverridePass)
     {
-        MsgBox("ERROR: Invalid configuration detected, cannot launch script!`nFor the script to operate properly, please review and adjust the following values accordingly.`n`n" invalidValuesMsg "", , "OK Iconx")
+        MsgBox("ERROR: Invalid values detected, the script is unable to proceed!`nPlease review and adjust the following values accordingly.`n`n" mainMsg "", , "OK Iconx")
         ; Since this script is not that big, I don't want to make another condition for its returned values, exit right away instead
         ExitApp(1)
     }
