@@ -23,7 +23,7 @@ globals["config"] := Map()
 ;   0 will prevent the script from running.
 ;   For reliable results, ensure that the POLLING_INTERVAL_MS does not exceed the ACTIVE_WINDOW_TIMEOUT_MS and INACTIVE_WINDOW_TIMEOUT_MS.
 ;   Any polling interval that is exactly equal to ACTIVE_WINDOW_TIMEOUT_MS and INACTIVE_WINDOW_TIMEOUT_MS will guarantee zero excess time.
-;   Value must ideally be a divisor of the two timeout values to ensure that 
+;   Value must ideally be a divisor of the two timeout values to ensure that
 ;   the total duration calculated by the polling interval aligns perfectly with the timeout.
 ;   To find the divisors of timeouts, list the numbers that divide the timeouts without leaving a remainder.
 ;   Find and choose one that is common among them, that shall be your ideal polling interval.
@@ -62,7 +62,7 @@ globals["config"]["INACTIVE_WINDOW_TIMEOUT_MS"] := 180000
 
 ; TASK_INPUT_BLOCK (Boolean)
 ; Description:
-;   This tells the script whether you want to block any input temporarily when the tasks 
+;   This tells the script whether you want to block any input temporarily when the tasks
 ;   are being performed while it shuffles through the monitored windows.
 ; Notes:
 ;   This requires administrator permissions and is therefore disabled by default.
@@ -804,10 +804,9 @@ performProcessTask(windowId, invokeProcessTask, isInputBlock)
     }
 }
 
-setNewWindowStatus(status, window)
+setNewWindowStatus(status, window, tickCount)
 {
     window["status"] := status
-    DllCall("QueryPerformanceCounter", "Int64*", &tickCount := 0)
     window["lastActivityTime"] := tickCount
     window["elapsedInactivityTime"] := 0
 }
@@ -820,7 +819,10 @@ registerWindows(windows, process_name)
     {
         return windows
     }
-
+    ; Cache module handle and function pointers for performance.
+    hKernel32 := DllCall("GetModuleHandle", "Str", "kernel32", "Ptr")
+    pQueryPerformanceCounter := DllCall("GetProcAddress", "Ptr", hKernel32, "AStr", "QueryPerformanceCounter", "Ptr")
+    tickCount := 0
     ; Retrieve all found unique ids (HWNDs) for this process' windows
     windowIds := WinGetList("ahk_exe " process_name)
     ; For every window id found under this process
@@ -840,8 +842,9 @@ registerWindows(windows, process_name)
 
         ; In this process' windows map, set a new map for this window id
         windows[windowId] := Map()
+        DllCall(pQueryPerformanceCounter, "Int64*", &tickCount)
         ; Initially mark it as ACTIVE
-        setNewWindowStatus("ACTIVE", windows[windowId])
+        setNewWindowStatus("ACTIVE", windows[windowId], tickCount)
         logDebug("[" process_name "] [Window ID: " windowId "] Created window map")
     }
 
@@ -851,6 +854,11 @@ registerWindows(windows, process_name)
 
 monitorWindows(windows, process_name)
 {
+    ; Cache module handle and function pointers for performance.
+    hKernel32 := DllCall("GetModuleHandle", "Str", "kernel32", "Ptr")
+    pQueryPerformanceCounter := DllCall("GetProcAddress", "Ptr", hKernel32, "AStr", "QueryPerformanceCounter", "Ptr")
+    pQueryPerformanceFrequency := DllCall("GetProcAddress", "Ptr", hKernel32, "AStr", "QueryPerformanceFrequency", "Ptr")
+
     activeWindowTimeoutMs := getAttributeValue("ACTIVE_WINDOW_TIMEOUT_MS", process_name)
     inactiveWindowTimeoutMs := getAttributeValue("INACTIVE_WINDOW_TIMEOUT_MS", process_name)
     invokeProcessTask := getAttributeValue("PROCESS_TASK", process_name)
@@ -877,13 +885,14 @@ monitorWindows(windows, process_name)
             ; elapsedInactivityTime's already been reset, reset only the lastActivityTime
             if (window["elapsedInactivityTime"] = 0)
             {
-                DllCall("QueryPerformanceCounter", "Int64*", &tickCount)
+                DllCall(pQueryPerformanceCounter, "Int64*", &tickCount)
                 window["lastActivityTime"] := tickCount
                 continue
             }
 
+            DllCall(pQueryPerformanceCounter, "Int64*", &tickCount)
             ; Once the task is done, reset it then mark it as ACTIVE
-            setNewWindowStatus("ACTIVE", window)
+            setNewWindowStatus("ACTIVE", window, tickCount)
             logDebug("[" process_name "] [Window ID: " windowId "] Active Monitored Window: User is NOT IDLE! Timers' been reset!")
             continue
         }
@@ -895,17 +904,19 @@ monitorWindows(windows, process_name)
             logDebug("[" process_name "] [Window ID: " windowId "] Active Monitored Window: User is IDLE!")
             ; Perform the configured task for this monitored window's process.
             performProcessTask(windowId, invokeProcessTask, isInputBlock)
+            DllCall(pQueryPerformanceCounter, "Int64*", &tickCount)
             ; Once the task is done, reset this monitored window then mark it as INACTIVE
-            setNewWindowStatus("INACTIVE", window)
+            setNewWindowStatus("INACTIVE", window, tickCount)
             continue
         }
-        DllCall("QueryPerformanceFrequency", "Int64*", &frequency := 0)
-        DllCall("QueryPerformanceCounter", "Int64*", &tickCount)
+        frequency := 0
+        DllCall(pQueryPerformanceFrequency, "Int64*", &frequency)
+        DllCall(pQueryPerformanceCounter, "Int64*", &tickCount)
         ; User is ABSENT in this monitored window, they're present in a different window
-        window["elapsedInactivityTime"] := (tickCount - window["lastActivityTime"]) / frequency * 1000
+        window["elapsedInactivityTime"] := ((tickCount - window["lastActivityTime"]) / frequency * 1000)
         if (window["elapsedInactivityTime"] > 0)
         {
-            logDebug("[" process_name "] [Window ID: " windowId "] Window is inactive for: " Round(window["elapsedInactivityTime"], 2) "ms / " inactiveWindowTimeoutMs "ms")
+            logDebug("[" process_name "] [Window ID: " windowId "] Window is inactive for: " window["elapsedInactivityTime"] "ms / " inactiveWindowTimeoutMs "ms")
         }
 
         ; This monitored window's been inactive for more than or equal to the configured INACTIVE_WINDOW_TIMEOUT_MS
@@ -913,8 +924,9 @@ monitorWindows(windows, process_name)
         {
             ; Perform the configured task for this monitored window's process.
             performProcessTask(windowId, invokeProcessTask, isInputBlock)
+            DllCall(pQueryPerformanceCounter, "Int64*", &tickCount)
             ; Once the task is done, reset this monitored window then mark it as INACTIVE
-            setNewWindowStatus("INACTIVE", window)
+            setNewWindowStatus("INACTIVE", window, tickCount)
         }
     }
     ; Monitoring operations END here
