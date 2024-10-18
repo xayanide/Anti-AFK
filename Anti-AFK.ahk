@@ -804,8 +804,13 @@ performProcessTask(windowId, invokeProcessTask, isInputBlock)
     }
 }
 
-setNewWindowStatus(status, window, tickCount := A_TickCount)
+setNewWindowStatus(status, window, tickCount := A_TickCount, isTickOnly := false)
 {
+    if (isTickOnly)
+    {
+        window["lastActivityTime"] := tickCount
+        return
+    }
     window["status"] := status
     window["lastActivityTime"] := tickCount
     window["elapsedInactivityTime"] := 0
@@ -875,10 +880,10 @@ monitorWindows(windows, process_name)
             ; elapsedInactivityTime's already been reset, reset only the lastActivityTime
             if (window["elapsedInactivityTime"] = 0)
             {
-                window["lastActivityTime"] := A_TickCount
+                setNewWindowStatus("ACTIVE", window, , true)
                 continue
             }
-    
+
             setNewWindowStatus("ACTIVE", window)
             logDebug("[" process_name "] [Window ID: " windowId "] Active Monitored Window: User is NOT IDLE! Timers' been reset!")
             continue
