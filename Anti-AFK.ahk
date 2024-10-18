@@ -8,7 +8,7 @@
 ; --------------------
 ; Configuration
 ;   To reduce the likelihood of facing errors after changing the configuration values,
-;   refer to the AutoHotkey language syntax documentation here:
+;   read the notes of each configuration. If necessary, refer to the AutoHotkey language syntax documentation here:
 ;   https://www.autohotkey.com/docs/v2/Language.htm
 ; --------------------
 
