@@ -791,6 +791,7 @@ monitorWindows(windows, process_name)
         }
 
         isWindowActive := WinActive(monitoredWindow)
+        tickCount := 0
         ; User is PRESENT in this monitored window
         ; User is NOT IDLING in this monitored window
         if (isWindowActive && (A_TimeIdlePhysical <= activeWindowTimeoutMs))
@@ -798,7 +799,8 @@ monitorWindows(windows, process_name)
             ; elapsedInactivityTime's already been reset, reset only the lastActivityTime
             if (window["elapsedInactivityTime"] = 0)
             {
-                window["lastActivityTime"] := A_TickCount
+                DllCall("QueryPerformanceCounter", "Int64*", &tickCount)
+                window["lastActivityTime"] := tickCount
                 continue
             }
 
@@ -820,7 +822,7 @@ monitorWindows(windows, process_name)
             continue
         }
         DllCall("QueryPerformanceFrequency", "Int64*", &frequency := 0)
-        DllCall("QueryPerformanceCounter", "Int64*", &tickCount := 0) 
+        DllCall("QueryPerformanceCounter", "Int64*", &tickCount) 
         ; User is ABSENT in this monitored window, they're present in a different window
         window["elapsedInactivityTime"] := (tickCount - window["lastActivityTime"]) / frequency * 1000
         if (window["elapsedInactivityTime"] > 0)
