@@ -18,12 +18,13 @@ globals["config"] := Map()
 ; POLLING_INTERVAL_MS (Integer, Milliseconds)
 ; Description:
 ;   This defines how frequently the script monitors the processes and their windows.
-;   Setting extremely low values means more frequent checks, which can increase CPU usage and potentially burden the system.
 ; Notes:
+;   Setting extremely low values means more frequent checks, which can increase CPU usage and potentially burden the system.
 ;   0 will prevent the script from running.
 ;   For reliable results, ensure that the POLLING_INTERVAL_MS does not exceed the ACTIVE_WINDOW_TIMEOUT_MS and INACTIVE_WINDOW_TIMEOUT_MS.
 ;   Any polling interval that is exactly equal to ACTIVE_WINDOW_TIMEOUT_MS and INACTIVE_WINDOW_TIMEOUT_MS will guarantee zero excess time.
-;   Must ideally be a divisor of the two timeout values to ensure that the total duration calculated by the polling interval aligns perfectly with the timeout.
+;   Value must ideally be a divisor of the two timeout values to ensure that 
+;   the total duration calculated by the polling interval aligns perfectly with the timeout.
 ;   To find the divisors of timeouts, list the numbers that divide the timeouts without leaving a remainder.
 ;   Find and choose one that is common among them, that shall be your ideal polling interval.
 ;   The script will let you know about invalid values if found.
@@ -34,7 +35,7 @@ globals["config"]["POLLING_INTERVAL_MS"] := 5000
 ; ACTIVE_WINDOW_TIMEOUT_MS (Integer, Milliseconds)
 ; Description:
 ;   The amount of time the user is considered idle in a monitored window they currently have in focus.
-;   When the user is found to be idle in a monitored window, for more than or equal to this amount of time,
+;   When the user is found to be idle in a monitored window for more than or equal to this amount of time,
 ;   the configured task for the process (in config or process override) will be performed right away.
 ;   If the user is still idling in that same monitored window, exceeding this ACTIVE_WINDOW_TIMEOUT_MS,
 ;   the window will be marked as INACTIVE, and the task is rescheduled to execute after the configured INACTIVE_WINDOW_TIMEOUT_MS is met.
@@ -61,8 +62,8 @@ globals["config"]["INACTIVE_WINDOW_TIMEOUT_MS"] := 180000
 
 ; TASK_INPUT_BLOCK (Boolean)
 ; Description:
-;   This tells the script whether you want to block any input temporarily when the tasks are being performed while it shuffles
-;   through the monitored windows.
+;   This tells the script whether you want to block any input temporarily when the tasks 
+;   are being performed while it shuffles through the monitored windows.
 ; Notes:
 ;   This requires administrator permissions and is therefore disabled by default.
 ;   If input is not blocked, keystrokes from the user from interacting other windows
