@@ -19,18 +19,14 @@ globals["config"] := Map()
 ; Description:
 ;   This defines how frequently the script monitors the processes and their windows.
 ; Notes:
-;   Setting extremely low values means more frequent checks, which can increase CPU usage and potentially burden the system.
-;   0 will prevent the script from running.
-;   For reliable results, ensure that the POLLING_INTERVAL_MS does not exceed the ACTIVE_WINDOW_TIMEOUT_MS and INACTIVE_WINDOW_TIMEOUT_MS.
-;   Any polling interval that is exactly equal to ACTIVE_WINDOW_TIMEOUT_MS and INACTIVE_WINDOW_TIMEOUT_MS will guarantee zero excess time.
-;   Value must ideally be a divisor of the two timeout values to ensure that
-;   the total duration calculated by the polling interval aligns perfectly with the timeout.
-;   To find the divisors of timeouts, list the numbers that divide the timeouts without leaving a remainder.
-;   Find and choose one that is common among them, that shall be your ideal polling interval.
+;   - Setting extremely low values means more frequent checks, which can increase CPU usage and potentially burden the system.
+;   - 0 will prevent the script from running.
+;   - Value must not exceed the ACTIVE_WINDOW_TIMEOUT_MS and INACTIVE_WINDOW_TIMEOUT_MS.
+;   - Value must be a common factor of ACTIVE_WINDOW_TIMEOUT_MS and INACTIVE_WINDOW_TIMEOUT_MS to ensure that the polls aligns perfectly with the timeout.
 ;   The script will let you know about invalid values if found.
 ; Default:
 ; 5000 (5 seconds)
-globals["config"]["POLLING_INTERVAL_MS"] := 5000
+globals["config"]["POLLING_INTERVAL_MS"] := 14
 
 ; ACTIVE_WINDOW_TIMEOUT_MS (Integer, Milliseconds)
 ; Description:
@@ -41,7 +37,8 @@ globals["config"]["POLLING_INTERVAL_MS"] := 5000
 ;   the window will be marked as INACTIVE, and the task is rescheduled to execute after the configured INACTIVE_WINDOW_TIMEOUT_MS is met.
 ; Notes:
 ;   Setting low values less than 3000ms (3 seconds) can be very disruptive and the script will prevent you from doing that.
-;   For reliable results, ensure that the ACTIVE_WINDOW_TIMEOUT_MS is not less than the configured POLLING_INTERVAL_MS.
+;   - Value must not be less than the configured POLLING_INTERVAL_MS.
+;   - Value must be divisible by POLLING_INTERVAL_MS (Divides evenly)
 ;   The script will let you know about invalid values if found.
 ; Default:
 ; 60000 (60 seconds or 1 minute)
@@ -53,8 +50,9 @@ globals["config"]["ACTIVE_WINDOW_TIMEOUT_MS"] := 60000
 ;   When the monitored window's been inactive for more than or equal to this amount of time,
 ;   the script will perform its task and repeat this.
 ; Notes:
-;   Setting low values less than 3000ms (3 seconds) can be very disruptive and the script will prevent you from doing that.
-;   For reliable results, ensure that the INACTIVE_WINDOW_TIMEOUT_MS is not less than the configured POLLING_INTERVAL_MS.
+;   - Setting low values less than 3000ms (3 seconds) can be very disruptive and the script will prevent you from doing that.
+;   - Value must not be less than the configured POLLING_INTERVAL_MS.
+;   - Value must be divisible by POLLING_INTERVAL_MS (Divides evenly)
 ;   The script will let you know about invalid values if found.
 ; Default:
 ; 180000 (180 seconds or 3 minutes)
@@ -65,8 +63,8 @@ globals["config"]["INACTIVE_WINDOW_TIMEOUT_MS"] := 180000
 ;   This tells the script whether you want to block any input temporarily when the tasks
 ;   are being performed while it shuffles through the monitored windows.
 ; Notes:
-;   This requires administrator permissions and is therefore disabled by default.
-;   If input is not blocked, keystrokes from the user from interacting other windows
+;   - This requires administrator permissions and is therefore disabled by default.
+;   - If input is not blocked, keystrokes from the user from interacting other windows
 ;   may 'leak' into the monitored window when the script moves it into focus.
 ; Default:
 ; false
@@ -76,10 +74,10 @@ globals["config"]["TASK_INPUT_BLOCK"] := false
 ; Description:
 ;   This is where you can write what you want the script to do once the the monitored process' window is in focus.
 ; Notes:
-;   For most games, delay of 15ms-50ms is generally enough for the the game to read simulated keypresses.
-;   Having it press down, then add a short delay before it is released up.
-;   Otherwise, some of your simulated inputs may go through and sometimes not.
-;   Read more about it this here:
+;   - For most games, delay of 15ms-50ms is generally enough for the the game to read simulated keypresses.
+;   - Having it press down, then add a short delay before it is released up.
+;   - Otherwise, some of your simulated inputs may go through and sometimes not.
+;   - Read more about it this here:
 ;   https://www.reddit.com/r/AutohotkeyCheats/comments/svseph/how_to_make_ahk_work_with_games_the_basics/
 ;   https://www.autohotkey.com/boards/viewtopic.php?t=11084
 ; Default:
@@ -98,7 +96,7 @@ globals["config"]["PROCESS_TASK"] := () => (
 ; Description:
 ;   This is the list of processes that the script will monitor for window activity.
 ; Notes:
-;   Any windows that do not belong to any of these processes will be ignored.
+;   - Any windows that do not belong to any of these processes will be ignored.
 ; Default:
 ; [
 ;     "RobloxPlayerBeta.exe",
@@ -116,10 +114,10 @@ globals["config"]["MONITOR_LIST"] := [
 ;   This allows you to specify specific values of ACTIVE_WINDOW_TIMEOUT_MS, INACTIVE_WINDOW_TIMEOUT_MS,
 ;   PROCESS_TASK and TASK_INPUT_BLOCK for specific processes.
 ; Notes:
-;   This is helpful if different games consider you AFK at wildly different times, or if the function to
+;   - This is helpful if different games consider you AFK at wildly different times, or if the function to
 ;   reset their AFK timers does not work as well across different applications.
-;   For the overrides to work, include the overriden process' name to the MONITOR_LIST.
-;   This is not the monitor list.
+;   - For the overrides to work, include the overriden process' name to the MONITOR_LIST.
+;   - This is not the monitor list.
 ; Default:
 ; Map(
 ;     "RobloxPlayerBeta.exe", Map(
@@ -138,8 +136,8 @@ globals["config"]["MONITOR_LIST"] := [
 ;     ),
 ;     "notepad.exe", Map(
 ;         "overrides", Map(
-;             ; 15 seconds
-;             "ACTIVE_WINDOW_TIMEOUT_MS", 15000,
+;             ; 20 seconds
+;             "ACTIVE_WINDOW_TIMEOUT_MS", 20000,
 ;             ; 30 seconds
 ;             "INACTIVE_WINDOW_TIMEOUT_MS", 30000,
 ;             "TASK_INPUT_BLOCK", false,
@@ -150,8 +148,8 @@ globals["config"]["MONITOR_LIST"] := [
 ;     ),
 ;     "wordpad.exe", Map(
 ;         "overrides", Map(
-;             ; 15 seconds
-;             "ACTIVE_WINDOW_TIMEOUT_MS", 15000,
+;             ; 20 seconds
+;             "ACTIVE_WINDOW_TIMEOUT_MS", 20000,
 ;             ; 30 seconds
 ;             "INACTIVE_WINDOW_TIMEOUT_MS", 30000,
 ;             "TASK_INPUT_BLOCK", false,
@@ -178,8 +176,8 @@ globals["config"]["PROCESS_OVERRIDES"] := Map(
     ),
     "notepad.exe", Map(
         "overrides", Map(
-            ; 15 seconds
-            "ACTIVE_WINDOW_TIMEOUT_MS", 15000,
+            ; 20 seconds
+            "ACTIVE_WINDOW_TIMEOUT_MS", 20000,
             ; 30 seconds
             "INACTIVE_WINDOW_TIMEOUT_MS", 30000,
             "TASK_INPUT_BLOCK", false,
@@ -190,8 +188,8 @@ globals["config"]["PROCESS_OVERRIDES"] := Map(
     ),
     "wordpad.exe", Map(
         "overrides", Map(
-            ; 15 seconds
-            "ACTIVE_WINDOW_TIMEOUT_MS", 15000,
+            ; 20 seconds
+            "ACTIVE_WINDOW_TIMEOUT_MS", 20000,
             ; 30 seconds
             "INACTIVE_WINDOW_TIMEOUT_MS", 30000,
             "TASK_INPUT_BLOCK", false,
@@ -214,16 +212,23 @@ logDebug(text)
 ; The calculated excess time of the polling interval and timeouts should be zero.
 ; only use any polling interval that is equal to or less than the timeout,
 ; as long as the total duration calculated does not exceed the timeout.
-calculateExcessTime(pollingIntervalMs, timeoutMs)
+calculateExcessTime(timeoutMs, pollingIntervalMs)
 {
     totalDurationMs := Ceil(timeoutMs / pollingIntervalMs) * pollingIntervalMs
     totalExcessTime := totalDurationMs - timeoutMs
-    logDebug("Polling Interval: " pollingIntervalMs " | Timeout: " timeoutMs " | Excess time: " totalExcessTime "")
+    logDebug("Polling Interval: " pollingIntervalMs " | Timeout: " timeoutMs " | Total Excess Time: " totalExcessTime "")
     if (totalExcessTime < 0)
     {
         totalExcessTime := 0
     }
     return totalExcessTime
+}
+
+isDivisible(dividend, divisor) {
+    if (divisor = 0) {
+        return false
+    }
+    return (Mod(dividend, divisor) = 0)
 }
 
 validateConfigAndOverrides()
@@ -285,19 +290,17 @@ validateConfigAndOverrides()
         isConfigPass := false
     }
 
-    ; Validate compatibility of POLLING_INTERVAL_MS to ACTIVE_WINDOW_TIMEOUT_MS
-    if (calculateExcessTime(pollingIntervalMs, activeWindowTimeoutMs) > 0)
+    if (!isDivisible(activeWindowTimeoutMs, pollingIntervalMs))
     {
-        configMsg .= "- POLLING_INTERVAL_MS (" pollingIntervalMs "ms) is incompatible with ACTIVE_WINDOW_TIMEOUT_MS (" activeWindowTimeoutMs "ms)`n"
-        configMsg .= "A monitored window is simulated to be detected " calculateExcessTime(pollingIntervalMs, activeWindowTimeoutMs) "ms late.`nConsider adjusting POLLING_INTERVAL_MS or the timeout values.`n`n"
+        configMsg .= "- POLLING_INTERVAL_MS (" pollingIntervalMs "ms) is not divisible by ACTIVE_WINDOW_TIMEOUT_MS (" activeWindowTimeoutMs "ms)`n"
+        configMsg .= "A monitored window can be detected " calculateExcessTime(activeWindowTimeoutMs, pollingIntervalMs) "ms late!`n`n"
         isConfigPass := false
     }
 
-    ; Validate compatibility of POLLING_INTERVAL_MS to INACTIVE_WINDOW_TIMEOUT_MS
-    if (calculateExcessTime(pollingIntervalMs, inactiveWindowTimeoutMs) > 0)
+    if (!isDivisible(inactiveWindowTimeoutMs, pollingIntervalMs))
     {
-        configMsg .= "- POLLING_INTERVAL_MS (" pollingIntervalMs "ms) is incompatible with INACTIVE_WINDOW_TIMEOUT_MS (" inactiveWindowTimeoutMs "ms)`n"
-        configMsg .= "A monitored window is simulated to be detected " calculateExcessTime(pollingIntervalMs, inactiveWindowTimeoutMs) "ms late.`nConsider adjusting POLLING_INTERVAL_MS or the timeout values.`n`n"
+        configMsg .= "- POLLING_INTERVAL_MS (" pollingIntervalMs "ms) is not divisible by INACTIVE_WINDOW_TIMEOUT_MS (" inactiveWindowTimeoutMs "ms)`n"
+        configMsg .= "A monitored window can be detected " calculateExcessTime(inactiveWindowTimeoutMs, pollingIntervalMs) "ms late!`n`n"
         isConfigPass := false
     }
 
@@ -321,17 +324,17 @@ validateConfigAndOverrides()
             isOverridePass := false
         }
 
-        if (overrides.Has("ACTIVE_WINDOW_TIMEOUT_MS") && (calculateExcessTime(pollingIntervalMs, overrides["ACTIVE_WINDOW_TIMEOUT_MS"]) > 0))
+        if (overrides.Has("ACTIVE_WINDOW_TIMEOUT_MS") && !isDivisible(overrides["ACTIVE_WINDOW_TIMEOUT_MS"], pollingIntervalMs))
         {
-            overridesMsg .= "- POLLING_INTERVAL_MS (" pollingIntervalMs "ms) is incompatible with ACTIVE_WINDOW_TIMEOUT_MS (" overrides["ACTIVE_WINDOW_TIMEOUT_MS"] "ms)`n"
-            overridesMsg .= "A monitored window is simulated to be detected " calculateExcessTime(pollingIntervalMs, overrides["ACTIVE_WINDOW_TIMEOUT_MS"]) "ms late.`nConsider adjusting POLLING_INTERVAL_MS or the timeout values.`n`n"
+            overridesMsg .= "- POLLING_INTERVAL_MS (" pollingIntervalMs "ms) is not divisible by ACTIVE_WINDOW_TIMEOUT_MS (" overrides["ACTIVE_WINDOW_TIMEOUT_MS"] "ms)`n"
+            overridesMsg .= "A monitored window can be detected " calculateExcessTime(overrides["ACTIVE_WINDOW_TIMEOUT_MS"], pollingIntervalMs) "ms late!`n`n"
             isOverridePass := false
         }
 
-        if (overrides.Has("INACTIVE_WINDOW_TIMEOUT_MS") && (calculateExcessTime(pollingIntervalMs, overrides["INACTIVE_WINDOW_TIMEOUT_MS"]) > 0))
+        if (overrides.Has("INACTIVE_WINDOW_TIMEOUT_MS") && !isDivisible(overrides["INACTIVE_WINDOW_TIMEOUT_MS"], pollingIntervalMs))
         {
-            overridesMsg .= "- POLLING_INTERVAL_MS (" pollingIntervalMs "ms) is incompatible with INACTIVE_WINDOW_TIMEOUT_MS (" overrides["INACTIVE_WINDOW_TIMEOUT_MS"] "ms)`n"
-            overridesMsg .= "A monitored window is simulated to be detected " calculateExcessTime(pollingIntervalMs, overrides["INACTIVE_WINDOW_TIMEOUT_MS"]) "ms late.`nConsider adjusting POLLING_INTERVAL_MS or the timeout values.`n`n"
+            overridesMsg .= "- POLLING_INTERVAL_MS (" pollingIntervalMs "ms) is not divisible by INACTIVE_WINDOW_TIMEOUT_MS (" overrides["INACTIVE_WINDOW_TIMEOUT_MS"] "ms)`n"
+            overridesMsg .= "A monitored window can be detected " calculateExcessTime(overrides["INACTIVE_WINDOW_TIMEOUT_MS"], pollingIntervalMs) "ms late!`n`n"
             isOverridePass := false
         }
 
@@ -804,16 +807,20 @@ performProcessTask(windowId, invokeProcessTask, isInputBlock)
     }
 }
 
-setNewWindowStatus(status, window, tickCount := A_TickCount, isTickOnly := false)
+getTimeoutTotalPolls(timeoutMs)
 {
-    if (isTickOnly)
+    return Max(1, Ceil(timeoutMs / globals["config"]["POLLING_INTERVAL_MS"]))
+}
+
+setNewWindowStatus(status, window, maxPolls, pollOnly := false)
+{
+    if (pollOnly)
     {
-        window["lastActivityTime"] := tickCount
+        window["maxPolls"] := maxPolls
         return
     }
     window["status"] := status
-    window["lastActivityTime"] := tickCount
-    window["elapsedInactivityTime"] := 0
+    window["maxPolls"] := maxPolls
 }
 
 registerWindows(windows, process_name)
@@ -845,7 +852,7 @@ registerWindows(windows, process_name)
         ; In this process' windows map, set a new map for this window id
         windows[windowId] := Map()
         ; Initially mark it as ACTIVE
-        setNewWindowStatus("ACTIVE", windows[windowId])
+        setNewWindowStatus("ACTIVE", windows[windowId], getTimeoutTotalPolls(getAttributeValue("INACTIVE_WINDOW_TIMEOUT_MS", process_name)))
         logDebug("[" process_name "] [Window ID: " windowId "] Created window map")
     }
 
@@ -855,8 +862,7 @@ registerWindows(windows, process_name)
 
 monitorWindows(windows, process_name)
 {
-    activeWindowTimeoutMs := getAttributeValue("ACTIVE_WINDOW_TIMEOUT_MS", process_name)
-    inactiveWindowTimeoutMs := getAttributeValue("INACTIVE_WINDOW_TIMEOUT_MS", process_name)
+    inactiveWindowTimeoutPolls := getTimeoutTotalPolls(getAttributeValue("INACTIVE_WINDOW_TIMEOUT_MS", process_name))
     invokeProcessTask := getAttributeValue("PROCESS_TASK", process_name)
     isInputBlock := getAttributeValue("TASK_INPUT_BLOCK", process_name)
 
@@ -875,17 +881,17 @@ monitorWindows(windows, process_name)
         isWindowActive := WinActive(monitoredWindow)
         ; User is PRESENT in this monitored window
         ; User is NOT IDLING in this monitored window
-        if (isWindowActive && (A_TimeIdlePhysical <= activeWindowTimeoutMs))
+        if (isWindowActive && (A_TimeIdlePhysical <= getAttributeValue("ACTIVE_WINDOW_TIMEOUT_MS", process_name)))
         {
-            ; elapsedInactivityTime's already been reset, reset only the lastActivityTime
-            if (window["elapsedInactivityTime"] = 0)
+            ; elapsedInactivityTime's already been reset, reset only the maxPolls
+            if (window["maxPolls"] = inactiveWindowTimeoutPolls)
             {
-                setNewWindowStatus("ACTIVE", window, , true)
+                setNewWindowStatus("ACTIVE", window, inactiveWindowTimeoutPolls, true)
                 continue
             }
 
-            setNewWindowStatus("ACTIVE", window)
-            logDebug("[" process_name "] [Window ID: " windowId "] Active Monitored Window: User is NOT IDLE! Timers' been reset!")
+            setNewWindowStatus("ACTIVE", window, inactiveWindowTimeoutPolls)
+            logDebug("[" process_name "] [Window ID: " windowId "] Active Monitored Window: User is NOT IDLE! Polls' been reset!")
             continue
         }
 
@@ -893,23 +899,18 @@ monitorWindows(windows, process_name)
         ; User is IDLING in this monitored window for more than or equal to the configured ACTIVE_WINDOW_TIMEOUT_MS
         if (isWindowActive && (window["status"] = "ACTIVE"))
         {
-            setNewWindowStatus("INACTIVE", window)
+            setNewWindowStatus("INACTIVE", window, 1, true)
             logDebug("[" process_name "] [Window ID: " windowId "] Active Monitored Window: User is IDLE!")
-            performProcessTask(windowId, invokeProcessTask, isInputBlock)
-            continue
         }
 
         ; User is ABSENT in this monitored window, they're present in a different window
-        window["elapsedInactivityTime"] := A_TickCount - window["lastActivityTime"]
-        if (window["elapsedInactivityTime"] > 0)
-        {
-            logDebug("[" process_name "] [Window ID: " windowId "] Window is inactive for: " window["elapsedInactivityTime"] "ms / " inactiveWindowTimeoutMs "ms")
-        }
-
+        window["maxPolls"] -= 1
+        logDebug("[" process_name "] [Window ID: " windowId "] " window["maxPolls"] " / " inactiveWindowTimeoutPolls " polls remaining")
+        
         ; This monitored window's been inactive for more than or equal to the configured INACTIVE_WINDOW_TIMEOUT_MS
-        if (window["elapsedInactivityTime"] >= inactiveWindowTimeoutMs)
+        if (window["maxPolls"] = 0)
         {
-            setNewWindowStatus("INACTIVE", window)
+            setNewWindowStatus("INACTIVE", window, inactiveWindowTimeoutPolls)
             performProcessTask(windowId, invokeProcessTask, isInputBlock)
         }
     }
