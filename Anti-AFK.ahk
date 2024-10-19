@@ -813,20 +813,20 @@ performProcessTask(windowId, invokeProcessTask, isInputBlock)
     }
 }
 
-getTimeoutTotalPolls(timeoutMs)
+getTimeoutpolls(timeoutMs)
 {
     return Max(1, Ceil(timeoutMs / globals["config"]["POLLING_INTERVAL_MS"]))
 }
 
-setNewWindowStatus(status, window, maxPolls, pollOnly := false)
+setNewWindowStatus(status, window, polls, pollsOnly := false)
 {
-    if (pollOnly)
+    if (pollsOnly)
     {
-        window["maxPolls"] := maxPolls
+        window["polls"] := polls
         return
     }
     window["status"] := status
-    window["maxPolls"] := maxPolls
+    window["polls"] := polls
 }
 
 registerWindows(windows, process_name)
@@ -858,7 +858,7 @@ registerWindows(windows, process_name)
         ; In this process' windows map, set a new map for this window id
         windows[windowId] := Map()
         ; Initially mark it as ACTIVE
-        setNewWindowStatus("ACTIVE", windows[windowId], getTimeoutTotalPolls(getAttributeValue("INACTIVE_WINDOW_TIMEOUT_MS", process_name)))
+        setNewWindowStatus("ACTIVE", windows[windowId], getTimeoutpolls(getAttributeValue("INACTIVE_WINDOW_TIMEOUT_MS", process_name)))
         logDebug("[" process_name "] [Window ID: " windowId "] Created window map")
     }
 
@@ -868,7 +868,7 @@ registerWindows(windows, process_name)
 
 monitorWindows(windows, process_name)
 {
-    inactiveWindowTimeoutPolls := getTimeoutTotalPolls(getAttributeValue("INACTIVE_WINDOW_TIMEOUT_MS", process_name))
+    inactiveWindowTimeoutPolls := getTimeoutpolls(getAttributeValue("INACTIVE_WINDOW_TIMEOUT_MS", process_name))
     invokeProcessTask := getAttributeValue("PROCESS_TASK", process_name)
     isInputBlock := getAttributeValue("TASK_INPUT_BLOCK", process_name)
 
@@ -889,8 +889,8 @@ monitorWindows(windows, process_name)
         ; User is NOT IDLING in this monitored window
         if (isWindowActive && (A_TimeIdlePhysical <= getAttributeValue("ACTIVE_WINDOW_TIMEOUT_MS", process_name)))
         {
-            ; elapsedInactivityTime's already been reset, reset only the maxPolls
-            if (window["maxPolls"] = inactiveWindowTimeoutPolls)
+            ; elapsedInactivityTime's already been reset, reset only the polls
+            if (window["polls"] = inactiveWindowTimeoutPolls)
             {
                 setNewWindowStatus("ACTIVE", window, inactiveWindowTimeoutPolls, true)
                 continue
@@ -910,11 +910,11 @@ monitorWindows(windows, process_name)
         }
 
         ; User is ABSENT in this monitored window, they're present in a different window
-        window["maxPolls"] -= 1
-        logDebug("[" process_name "] [Window ID: " windowId "] " window["maxPolls"] " / " inactiveWindowTimeoutPolls " polls remaining")
+        window["polls"] -= 1
+        logDebug("[" process_name "] [Window ID: " windowId "] " window["polls"] " / " inactiveWindowTimeoutPolls " polls remaining")
 
         ; This monitored window's been inactive for more than or equal to the configured INACTIVE_WINDOW_TIMEOUT_MS
-        if (window["maxPolls"] = 0)
+        if (window["polls"] = 0)
         {
             setNewWindowStatus("INACTIVE", window, inactiveWindowTimeoutPolls)
             performProcessTask(windowId, invokeProcessTask, isInputBlock)
