@@ -26,7 +26,7 @@ globals["config"] := Map()
 ;   The script will let you know about invalid values if found.
 ; Default:
 ; 5000 (5 seconds)
-globals["config"]["POLLING_INTERVAL_MS"] := 14
+globals["config"]["POLLING_INTERVAL_MS"] := 5000
 
 ; ACTIVE_WINDOW_TIMEOUT_MS (Integer, Milliseconds)
 ; Description:
@@ -224,8 +224,10 @@ calculateExcessTime(timeoutMs, pollingIntervalMs)
     return totalExcessTime
 }
 
-isDivisible(dividend, divisor) {
-    if (divisor = 0) {
+isDivisible(dividend, divisor)
+{
+    if (divisor = 0)
+    {
         return false
     }
     return (Mod(dividend, divisor) = 0)
@@ -258,7 +260,7 @@ validateConfigAndOverrides()
     ; Display the common divisors
     activeWindowTimeoutMs := globals["config"]["ACTIVE_WINDOW_TIMEOUT_MS"]
     inactiveWindowTimeoutMs := globals["config"]["INACTIVE_WINDOW_TIMEOUT_MS"]
-
+    configMsg := "Invalid configurations:`n"
     if (pollingIntervalMs > activeWindowTimeoutMs)
     {
         configMsg .= "- POLLING_INTERVAL_MS (" pollingIntervalMs "ms) > ACTIVE_WINDOW_TIMEOUT_MS (" activeWindowTimeoutMs "ms)`n"
@@ -293,14 +295,16 @@ validateConfigAndOverrides()
     if (!isDivisible(activeWindowTimeoutMs, pollingIntervalMs))
     {
         configMsg .= "- POLLING_INTERVAL_MS (" pollingIntervalMs "ms) is not divisible by ACTIVE_WINDOW_TIMEOUT_MS (" activeWindowTimeoutMs "ms)`n"
-        configMsg .= "A monitored window can be detected " calculateExcessTime(activeWindowTimeoutMs, pollingIntervalMs) "ms late!`n`n"
-        isConfigPass := false
+        configMsg .= "A monitored window can be detected " calculateExcessTime(activeWindowTimeoutMs, pollingIntervalMs) "ms late!`n"
+        configMsg .= "Consider adjusting the polling interval and timeout value`n`n"
+        sConfigPass := false
     }
 
     if (!isDivisible(inactiveWindowTimeoutMs, pollingIntervalMs))
     {
         configMsg .= "- POLLING_INTERVAL_MS (" pollingIntervalMs "ms) is not divisible by INACTIVE_WINDOW_TIMEOUT_MS (" inactiveWindowTimeoutMs "ms)`n"
-        configMsg .= "A monitored window can be detected " calculateExcessTime(inactiveWindowTimeoutMs, pollingIntervalMs) "ms late!`n`n"
+        configMsg .= "A monitored window can be detected " calculateExcessTime(inactiveWindowTimeoutMs, pollingIntervalMs) "ms late!`n"
+        configMsg .= "Consider adjusting the polling interval and timeout value`n`n"
         isConfigPass := false
     }
 
@@ -327,14 +331,16 @@ validateConfigAndOverrides()
         if (overrides.Has("ACTIVE_WINDOW_TIMEOUT_MS") && !isDivisible(overrides["ACTIVE_WINDOW_TIMEOUT_MS"], pollingIntervalMs))
         {
             overridesMsg .= "- POLLING_INTERVAL_MS (" pollingIntervalMs "ms) is not divisible by ACTIVE_WINDOW_TIMEOUT_MS (" overrides["ACTIVE_WINDOW_TIMEOUT_MS"] "ms)`n"
-            overridesMsg .= "A monitored window can be detected " calculateExcessTime(overrides["ACTIVE_WINDOW_TIMEOUT_MS"], pollingIntervalMs) "ms late!`n`n"
+            overridesMsg .= "A monitored window can be detected " calculateExcessTime(overrides["ACTIVE_WINDOW_TIMEOUT_MS"], pollingIntervalMs) "ms late!`n"
+            overridesMsg .= "Consider adjusting the polling interval and timeout value`n`n"
             isOverridePass := false
         }
 
         if (overrides.Has("INACTIVE_WINDOW_TIMEOUT_MS") && !isDivisible(overrides["INACTIVE_WINDOW_TIMEOUT_MS"], pollingIntervalMs))
         {
             overridesMsg .= "- POLLING_INTERVAL_MS (" pollingIntervalMs "ms) is not divisible by INACTIVE_WINDOW_TIMEOUT_MS (" overrides["INACTIVE_WINDOW_TIMEOUT_MS"] "ms)`n"
-            overridesMsg .= "A monitored window can be detected " calculateExcessTime(overrides["INACTIVE_WINDOW_TIMEOUT_MS"], pollingIntervalMs) "ms late!`n`n"
+            overridesMsg .= "A monitored window can be detected " calculateExcessTime(overrides["INACTIVE_WINDOW_TIMEOUT_MS"], pollingIntervalMs) "ms late!`n"
+            overridesMsg .= "Consider adjusting the polling interval and timeout value`n`n"
             isOverridePass := false
         }
 
@@ -906,7 +912,7 @@ monitorWindows(windows, process_name)
         ; User is ABSENT in this monitored window, they're present in a different window
         window["maxPolls"] -= 1
         logDebug("[" process_name "] [Window ID: " windowId "] " window["maxPolls"] " / " inactiveWindowTimeoutPolls " polls remaining")
-        
+
         ; This monitored window's been inactive for more than or equal to the configured INACTIVE_WINDOW_TIMEOUT_MS
         if (window["maxPolls"] = 0)
         {
