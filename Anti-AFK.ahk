@@ -965,6 +965,7 @@ monitorProcesses()
                 processes.Delete(process_name)
                 continue
             }
+
             windows := registerWindows(process["windows"], process_name)
             ; No windows were found for this process, do not monitor this process' windows, skip it
             if (windows.Count < 1)
