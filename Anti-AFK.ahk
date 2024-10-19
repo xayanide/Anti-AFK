@@ -25,7 +25,7 @@ globals["config"] := Map()
 ;   The script will let you know about invalid values if found.
 ; Default:
 ; 5000 (5 seconds)
-globals["config"]["POLLING_INTERVAL_MS"] := 1000
+globals["config"]["POLLING_INTERVAL_MS"] := 5000
 
 ; ACTIVE_WINDOW_TIMEOUT_MS (Integer, Milliseconds)
 ; Description:
