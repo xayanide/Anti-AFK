@@ -714,7 +714,7 @@ performProcessTask(windowId, invokeProcessTask, isInputBlock)
     monitoredWindowInfo := getWindowInfo("ahk_id " windowId)
     logDebug("[" monitoredWindowInfo["EXE"] "] [Window ID: " monitoredWindowInfo["ID"] "] @performProcessTask: STARTED")
     monitoredWindow := "ahk_id " monitoredWindowInfo["ID"]
-    logDebug("[" monitoredWindowInfo["EXE"] "] [Window ID: " monitoredWindowInfo["ID"] "] Monitored Window INFO : [CLS:" monitoredWindowInfo["CLS"] "] [ID:" monitoredWindowInfo["ID"] "] [PID:" monitoredWindowInfo["PID"] "] [EXE:" monitoredWindowInfo["EXE"] "]")
+    logDebug("[Monitored Window INFO] : [CLS: " monitoredWindowInfo["CLS"] "] [ID: " monitoredWindowInfo["ID"] "] [PID: " monitoredWindowInfo["PID"] "] [EXE: " monitoredWindowInfo["EXE"] "]")
 
     ; User is PRESENT on the monitored window, perform the task right away
     if (WinActive(monitoredWindow))
@@ -752,14 +752,14 @@ performProcessTask(windowId, invokeProcessTask, isInputBlock)
             return
         }
 
-        logDebug("[" activeWindowInfo["EXE"] "] [Window ID: " activeWindowInfo["ID"] "] Active Window INFO : [CLS:" activeWindowInfo["CLS"] "] [ID:" activeWindowInfo["ID"] "] [PID:" activeWindowInfo["PID"] "] [EXE:" activeWindowInfo["EXE"] "]")
+        logDebug("[Active Window INFO] : [CLS: " activeWindowInfo["CLS"] "] [ID: " activeWindowInfo["ID"] "] [PID: " activeWindowInfo["PID"] "] [EXE: " activeWindowInfo["EXE"] "]")
 
         ; User is PRESENT on these kind of Windows: Action center / Date and time information / Start Menu / Search
         ; Simply activating the monitored window will not work, the taskbar icons of the monitored window will flash, indicating that it's not activated.
         ; The script needs to be ran with UI access to activate other windows while the user is active on those Windows UI Core windows.
         if (activeWindowInfo["CLS"] = "Windows.UI.Core.CoreWindow")
         {
-            logDebug("[" activeWindowInfo["EXE"] "] [Window ID: " activeWindowInfo["ID"] "] Active Window is " activeWindowInfo["CLS"] "")
+            logDebug("[" activeWindowInfo["EXE"] "] [Window ID: " activeWindowInfo["ID"] "] Active Window is a Windows UI Core window")
             ; Todo: Add a statement to check if the script is ran with UI access or not to skip this work around.
             ; Alt + Tab the user out from those kind of Windows as a workaround
             Send("{Alt Down}{Tab Up}{Tab Down}")
