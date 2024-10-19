@@ -1,6 +1,6 @@
 #Requires AutoHotkey v2.0
 #SingleInstance
-#Warn
+#Warn All
 
 ; Do not list lines (Commented for now)
 ; ListLines(0)
@@ -11,7 +11,6 @@
 ;   read the notes of each configuration. If necessary, refer to the AutoHotkey language syntax documentation here:
 ;   https://www.autohotkey.com/docs/v2/Language.htm
 ; --------------------
-
 global globals := Map()
 globals["config"] := Map()
 
@@ -26,7 +25,7 @@ globals["config"] := Map()
 ;   The script will let you know about invalid values if found.
 ; Default:
 ; 5000 (5 seconds)
-globals["config"]["POLLING_INTERVAL_MS"] := 5000
+globals["config"]["POLLING_INTERVAL_MS"] := 1000
 
 ; ACTIVE_WINDOW_TIMEOUT_MS (Integer, Milliseconds)
 ; Description:
