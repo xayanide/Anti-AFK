@@ -203,9 +203,8 @@ globals["config"]["PROCESS_OVERRIDES"] := Map(
 ; Script
 ; --------------------
 
-logDebug(text)
-{
-    OutputDebug("[" A_Now "] [DEBUG] " text "")
+logDebug(formatString, params*) {
+    OutputDebug(Format("[{1}] [DEBUG] {2}", A_Now, Format(formatString, params*)))
 }
 
 ; The calculated excess time of the polling interval and timeouts should be zero.
@@ -215,7 +214,7 @@ calculateExcessTime(timeoutMs, pollingIntervalMs)
 {
     totalDurationMs := Ceil(timeoutMs / pollingIntervalMs) * pollingIntervalMs
     totalExcessTime := totalDurationMs - timeoutMs
-    logDebug("Polling Interval: " pollingIntervalMs " | Timeout: " timeoutMs " | Total Excess Time: " totalExcessTime "")
+    logDebug("Polling Interval: {1} | Timeout: {2} | Total Excess Time: {3}", pollingIntervalMs, timeoutMs, totalExcessTime)
     if (totalExcessTime < 0)
     {
         totalExcessTime := 0
@@ -242,14 +241,14 @@ validateConfigAndOverrides()
     pollingIntervalMs := globals["config"]["POLLING_INTERVAL_MS"]
     if (pollingIntervalMs <= 0)
     {
-        validationMsg .= "ERROR: The configured POLLING_INTERVAL_MS (" pollingIntervalMs "ms) is less than or equal to 0. The script will exit immediately."
+        validationMsg .= Format("ERROR: The configured POLLING_INTERVAL_MS ({1}ms) is less than or equal to 0. The script will exit immediately.", pollingIntervalMs)
         MsgBox(validationMsg, , "OK Iconx")
         ExitApp(1)
     }
 
     if (pollingIntervalMs < 1000)
     {
-        validationMsg .= "WARNING: The configured POLLING_INTERVAL_MS (" pollingIntervalMs "ms) is below 1000ms! This can significantly increase CPU usage and put a strain on your system's resources!`nWould you like to continue?"
+        validationMsg .=  Format("WARNING: The configured POLLING_INTERVAL_MS ({1}ms) is below 1000ms! This can significantly increase CPU usage and put a strain on your system's resources!`nWould you like to continue?", pollingIntervalMs)
         userInput := MsgBox(validationMsg, , "YesNo Default2 Icon!")
         if (userInput = "No")
         {
@@ -261,22 +260,22 @@ validateConfigAndOverrides()
     configMsg := "Invalid configurations:`n"
     if (pollingIntervalMs > activeWindowTimeoutMs)
     {
-        configMsg .= "- POLLING_INTERVAL_MS (" pollingIntervalMs "ms) > ACTIVE_WINDOW_TIMEOUT_MS (" activeWindowTimeoutMs "ms)`n"
+        configMsg .=  Format("- POLLING_INTERVAL_MS ({1}ms) > ACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, activeWindowTimeoutMs)
         configMsg .= "Polling interval must be lower than this setting!`n`n"
         isConfigPass := false
     }
 
     if (activeWindowTimeoutMs < 3000)
     {
-        configMsg .= "- ACTIVE_WINDOW_TIMEOUT_MS (" activeWindowTimeoutMs "ms)`n"
+        configMsg .=  Format("- ACTIVE_WINDOW_TIMEOUT_MS ({1}ms)`n", activeWindowTimeoutMs)
         configMsg .= "Must be at least 3000ms!`n`n"
         isConfigPass := false
     }
 
     if (!isDivisible(activeWindowTimeoutMs, pollingIntervalMs))
     {
-        configMsg .= "- POLLING_INTERVAL_MS (" pollingIntervalMs "ms) is not divisible by ACTIVE_WINDOW_TIMEOUT_MS (" activeWindowTimeoutMs "ms)`n"
-        configMsg .= "A monitored window can be detected " calculateExcessTime(activeWindowTimeoutMs, pollingIntervalMs) "ms late!`n"
+        configMsg .=  Format("- POLLING_INTERVAL_MS ({1}ms) is not divisible by ACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, activeWindowTimeoutMs)
+        configMsg .=  Format("A monitored window can be detected {1}ms late!`n", calculateExcessTime(activeWindowTimeoutMs, pollingIntervalMs))
         configMsg .= "Consider adjusting the polling interval and timeout value`n`n"
         sConfigPass := false
     }
@@ -284,22 +283,22 @@ validateConfigAndOverrides()
     inactiveWindowTimeoutMs := globals["config"]["INACTIVE_WINDOW_TIMEOUT_MS"]
     if (pollingIntervalMs > inactiveWindowTimeoutMs)
     {
-        configMsg .= "- POLLING_INTERVAL_MS (" pollingIntervalMs "ms) > INACTIVE_WINDOW_TIMEOUT_MS (" inactiveWindowTimeoutMs "ms)`n"
+        configMsg .=  Format("- POLLING_INTERVAL_MS ({1}ms) > INACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, inactiveWindowTimeoutMs)
         configMsg .= "Polling interval must be lower than this setting!`n`n"
         isConfigPass := false
     }
 
     if (inactiveWindowTimeoutMs < 3000)
     {
-        configMsg .= "- INACTIVE_WINDOW_TIMEOUT_MS (" inactiveWindowTimeoutMs "ms)`n"
+        configMsg .=  Format("- INACTIVE_WINDOW_TIMEOUT_MS ({1}ms)`n", inactiveWindowTimeoutMs)
         configMsg .= "Must be at least 3000ms!`n`n"
         isConfigPass := false
     }
 
     if (!isDivisible(inactiveWindowTimeoutMs, pollingIntervalMs))
     {
-        configMsg .= "- POLLING_INTERVAL_MS (" pollingIntervalMs "ms) is not divisible by INACTIVE_WINDOW_TIMEOUT_MS (" inactiveWindowTimeoutMs "ms)`n"
-        configMsg .= "A monitored window can be detected " calculateExcessTime(inactiveWindowTimeoutMs, pollingIntervalMs) "ms late!`n"
+        configMsg .=  Format("- POLLING_INTERVAL_MS ({1}ms) is not divisible by INACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, inactiveWindowTimeoutMs)
+        configMsg .=  Format("An inactive window can be detected {1}ms late!`n", calculateExcessTime(inactiveWindowTimeoutMs, pollingIntervalMs))
         configMsg .= "Consider adjusting the polling interval and timeout value`n`n"
         isConfigPass := false
     }
@@ -313,15 +312,15 @@ validateConfigAndOverrides()
         overrideActive := overrides["ACTIVE_WINDOW_TIMEOUT_MS"]
         if (overrides.Has("ACTIVE_WINDOW_TIMEOUT_MS") && (pollingIntervalMs > overrideActive))
         {
-            overridesMsg .= "- POLLING_INTERVAL_MS (" pollingIntervalMs "ms) > ACTIVE_WINDOW_TIMEOUT_MS (" overrideActive "ms)`n"
+            overridesMsg .=  Format("- POLLING_INTERVAL_MS ({1}ms) > ACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, overrideActive)
             overridesMsg .= "Polling interval must be lower than this override!`n`n"
             isOverridePass := false
         }
 
         if (overrides.Has("ACTIVE_WINDOW_TIMEOUT_MS") && !isDivisible(overrideActive, pollingIntervalMs))
         {
-            overridesMsg .= "- POLLING_INTERVAL_MS (" pollingIntervalMs "ms) is not divisible by ACTIVE_WINDOW_TIMEOUT_MS (" overrideActive "ms)`n"
-            overridesMsg .= "A monitored window can be detected " calculateExcessTime(overrideActive, pollingIntervalMs) "ms late!`n"
+            overridesMsg .=  Format("- POLLING_INTERVAL_MS ({1}ms) is not divisible by ACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, overrideActive)
+            overridesMsg .=  Format("A monitored window can be detected {1}ms late!`n", calculateExcessTime(overrideActive, pollingIntervalMs))
             overridesMsg .= "Consider adjusting the polling interval and timeout value`n`n"
             isOverridePass := false
         }
@@ -329,15 +328,15 @@ validateConfigAndOverrides()
         overrideInactive := overrides["INACTIVE_WINDOW_TIMEOUT_MS"]
         if (overrides.Has("INACTIVE_WINDOW_TIMEOUT_MS") && (pollingIntervalMs > overrideInactive))
         {
-            overridesMsg .= "- POLLING_INTERVAL_MS (" pollingIntervalMs "ms) > INACTIVE_WINDOW_TIMEOUT_MS (" overrideInactive "ms)`n"
+            overridesMsg .=  Format("- POLLING_INTERVAL_MS ({1}ms) > INACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, overrideInactive)
             overridesMsg .= "Polling interval must be lower than this override!`n`n"
             isOverridePass := false
         }
 
         if (overrides.Has("INACTIVE_WINDOW_TIMEOUT_MS") && !isDivisible(overrideInactive, pollingIntervalMs))
         {
-            overridesMsg .= "- POLLING_INTERVAL_MS (" pollingIntervalMs "ms) is not divisible by INACTIVE_WINDOW_TIMEOUT_MS (" overrideInactive "ms)`n"
-            overridesMsg .= "A monitored window can be detected " calculateExcessTime(overrideInactive, pollingIntervalMs) "ms late!`n"
+            overridesMsg .=  Format("- POLLING_INTERVAL_MS ({1}ms) is not divisible by INACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, overrideInactive)
+            overridesMsg .=  Format("An inactive window can be detected {1}ms late!`n", calculateExcessTime(overrideInactive, pollingIntervalMs))
             overridesMsg .= "Consider adjusting the polling interval and timeout value`n`n"
             isOverridePass := false
         }
@@ -475,13 +474,13 @@ updateSystemTray(processes)
             tooltipText := "Managing:`n"
             for process_name, counter in managedWindows
             {
-                tooltipText .= process_name " - " counter " windows(s)`n"
+                tooltipText .= Format("{1} - {2} windows(s)`n", process_name, counter)
             }
 
             tooltipText .= "`nMonitoring:`n"
             for process_name, counter in monitoredWindows
             {
-                tooltipText .= process_name " - " counter " windows(s)`n"
+                tooltipText .= Format("{1} - {2} windows(s)`n", process_name, counter)
             }
 
             tooltipText := RTrim(tooltipText, "`n")
@@ -492,7 +491,7 @@ updateSystemTray(processes)
             tooltipText := "Managing:`n"
             for process_name, counter in managedWindows
             {
-                tooltipText .= process_name " - " counter " windows(s)`n"
+                tooltipText .= Format("{1} - {2} windows(s)`n", process_name, counter)
             }
 
             tooltipText := RTrim(tooltipText, "`n")
@@ -505,7 +504,7 @@ updateSystemTray(processes)
         tooltipText := "Monitoring:`n"
         for process_name, counter in monitoredWindows
         {
-            tooltipText .= process_name " - " counter " windows(s)`n"
+            tooltipText .= Format("{1} - {2} windows(s)`n", process_name, counter)
         }
 
         tooltipText := RTrim(tooltipText, "`n")
@@ -540,7 +539,7 @@ blockUserInput(option, isInputBlock)
     }
 
     BlockInput(option)
-    logDebug("@blockUserInput: " option " successful!")
+    logDebug("@blockUserInput: {1} successful!", option)
 }
 
 getWindow(windowInfo, fallbackWindow)
@@ -551,9 +550,9 @@ getWindow(windowInfo, fallbackWindow)
         return fallbackWindow
     }
 
-    windowId := "ahk_id " windowInfo["ID"]
-    process_id := "ahk_pid " windowInfo["PID"]
-    process_name := "ahk_exe " windowInfo["EXE"]
+    windowId := Format("ahk_id {1}", windowInfo["ID"])
+    process_id := Format("ahk_pid {1}", windowInfo["PID"])
+    process_name := Format("ahk_exe {1}", windowInfo["EXE"])
     if (WinExist(windowId))
     {
         return windowId
@@ -577,7 +576,7 @@ getWindowInfo(window)
     windowInfo := Map()
     if (!WinExist(window))
     {
-        logDebug("[Window: " window "] Failed to retrieve window info! Window does not exist!")
+        logDebug("[Window: {1}] Failed to retrieve window info! Window does not exist!", window)
         return windowInfo
     }
 
@@ -593,13 +592,13 @@ activateWindow(window)
 {
     if (!WinExist(window))
     {
-        logDebug("[Window: " window "] Failed to activate! Window does not exist!")
+        logDebug("[Window: {1}] Failed to activate! Window does not exist!", window)
         return false
     }
 
     if (!isWindowTargetable(window))
     {
-        logDebug("[Window: " window "] Failed to activate! Window is not targetable!")
+        logDebug("[Window: {1}] Failed to activate! Window is not targetable!", window)
         return false
     }
 
@@ -607,11 +606,11 @@ activateWindow(window)
     value := WinWaitActive(window, , 0.30)
     if (value = 0)
     {
-        logDebug("[Window: " window "] Failed to activate! Window timed out!")
+        logDebug("[Window: {1}] Failed to activate! Window timed out!", window)
         return false
     }
 
-    logDebug("[Window: " window "] Window successfully activated!")
+    logDebug("[Window: {1}] Window successfully activated!", window)
     return true
 }
 
@@ -712,17 +711,17 @@ performProcessTask(windowId, invokeProcessTask, isInputBlock)
 {
     isWindowActivateSucess := false
     activeWindow := "A"
-    monitoredWindowInfo := getWindowInfo("ahk_id " windowId)
-    logDebug("[" monitoredWindowInfo["EXE"] "] [Window ID: " monitoredWindowInfo["ID"] "] @performProcessTask: STARTED")
-    monitoredWindow := "ahk_id " monitoredWindowInfo["ID"]
-    logDebug("[Monitored Window INFO] : [CLS: " monitoredWindowInfo["CLS"] "] [ID: " monitoredWindowInfo["ID"] "] [PID: " monitoredWindowInfo["PID"] "] [EXE: " monitoredWindowInfo["EXE"] "]")
+    monitoredWindowInfo := getWindowInfo(Format("ahk_id {1}", windowId))
+    logDebug("[{1}] [Window ID: {2}] @performProcessTask: STARTED", monitoredWindowInfo["EXE"], monitoredWindowInfo["ID"])
+    monitoredWindow := Format("ahk_id {1}", monitoredWindowInfo["ID"])
+    logDebug("[Monitored Window INFO] : [CLS: {1}] [ID: {2}] [PID: {3}] [EXE: {4}]", monitoredWindowInfo["CLS"], monitoredWindowInfo["PID"], monitoredWindowInfo["ID"], monitoredWindowInfo["EXE"])
 
     ; User is PRESENT on the monitored window, perform the task right away
     if (WinActive(monitoredWindow))
     {
         invokeProcessTask()
-        logDebug("[" monitoredWindowInfo["EXE"] "] [Window ID: " monitoredWindowInfo["ID"] "] Active Monitored Window invokeProcessTask() successful!")
-        logDebug("[" monitoredWindowInfo["EXE"] "] [Window ID: " monitoredWindowInfo["ID"] "] @performProcessTask: FINISHED")
+        logDebug("[{1}] [Window ID: {2}] Active Monitored Window invokeProcessTask() successful!", monitoredWindowInfo["EXE"], monitoredWindowInfo["ID"])
+        logDebug("[{1}] [Window ID: {2}] @performProcessTask: FINISHED", monitoredWindowInfo["EXE"], monitoredWindowInfo["ID"])
         return
     }
 
@@ -742,30 +741,30 @@ performProcessTask(windowId, invokeProcessTask, isInputBlock)
             isWindowActivateSucess := activateWindow(monitoredWindow)
             if (!isWindowActivateSucess)
             {
-                logDebug("[" monitoredWindowInfo["EXE"] "] [Window ID: " monitoredWindowInfo["ID"] "] Inactive Monitored Window invokeProcessTask() failed!")
-                showTraytip("The script has failed to perform a task to " monitoredWindowInfo["EXE"] "'s monitored window: '" monitoredWindowInfo["TITLE"] "' (" monitoredWindowInfo["ID"] ")", "Anti-AFK has failed to perform a process' task", "Iconx", -35000)
+                logDebug("[{1}] [Window ID: {2}] Inactive Monitored Window invokeProcessTask() failed!", monitoredWindowInfo["EXE"], monitoredWindowInfo["ID"])
+                showTraytip(Format("The script has failed to perform a task to {1}'s monitored window: '{2}' ({3})", monitoredWindowInfo["EXE"], monitoredWindowInfo["TITLE"], monitoredWindowInfo["ID"]), "Anti-AFK has failed to perform a process' task", "Iconx", -35000)
                 return
             }
             invokeProcessTask()
             WinMoveBottom(monitoredWindow)
-            logDebug("[" monitoredWindowInfo["EXE"] "] [Window ID: " monitoredWindowInfo["ID"] "] Inactive Monitored Window invokeProcessTask() successful!")
+            logDebug("[{1}] [Window ID: {2}] Inactive Monitored Window invokeProcessTask() successful!", monitoredWindowInfo["EXE"], monitoredWindowInfo["ID"])
             return
         }
 
-        logDebug("[Active Window INFO] : [CLS: " activeWindowInfo["CLS"] "] [ID: " activeWindowInfo["ID"] "] [PID: " activeWindowInfo["PID"] "] [EXE: " activeWindowInfo["EXE"] "]")
+        logDebug("[Active Window INFO] : [CLS: {1}] [ID: {2}] [PID: {3}] [EXE: {4}]", activeWindowInfo["CLS"], activeWindowInfo["PID"], activeWindowInfo["ID"], activeWindowInfo["EXE"])
 
         ; User is PRESENT on these kind of Windows: Action center / Date and time information / Start Menu / Search
         ; Simply activating the monitored window will not work, the taskbar icons of the monitored window will flash, indicating that it's not activated.
         ; The script needs to be ran with UI access to activate other windows while the user is active on those Windows UI Core windows.
         if (activeWindowInfo["CLS"] = "Windows.UI.Core.CoreWindow")
         {
-            logDebug("[" activeWindowInfo["EXE"] "] [Window ID: " activeWindowInfo["ID"] "] Active Window is a Windows UI Core window")
+            logDebug("[{1}] [Window ID: {2}] Active Window is a Windows UI Core window", activeWindowInfo["EXE"], activeWindowInfo["ID"])
             ; Todo: Add a statement to check if the script is ran with UI access or not to skip this work around.
             ; Alt + Tab the user out from those kind of Windows as a workaround
             Send("{Alt Down}{Tab Up}{Tab Down}")
             Sleep(500)
             Send("{Alt Up}")
-            showTraytip("For the monitored windows to activate, Anti-AFK has Alt + Tabbed you out from a Windows UI Core window: '" activeWindowInfo["TITLE"] "' (" activeWindowInfo["ID"] ")", "Anti-AFK has Alt + Tabbed you out from a Windows UI Core window", "Icon!", -35000)
+            showTraytip(Format("For the monitored windows to activate, Anti-AFK has Alt + Tabbed you out from a Windows UI Core window: '{1}' ({2})", activeWindowInfo["TITLE"], activeWindowInfo["ID"]), "Anti-AFK has Alt + Tabbed you out from a Windows UI Core window", "Icon!", -35000)
             showTraytip("Being active on a Windows UI Core window while the script performs a task can hinder the activation of the monitored window.", "Anti-AFK Notice", "Iconi", -35000)
         }
 
@@ -781,15 +780,15 @@ performProcessTask(windowId, invokeProcessTask, isInputBlock)
         ; into whatever the user is currently doing on other windows
         if (WinActive(oldActiveWindow) || !isWindowActivateSucess)
         {
-            logDebug("[" monitoredWindowInfo["EXE"] "] [Window ID: " monitoredWindowInfo["ID"] "] Inactive Monitored Window invokeProcessTask() failed!")
+            logDebug("[{1}] [Window ID: {2}] Inactive Monitored Window invokeProcessTask() failed!", monitoredWindowInfo["EXE"], monitoredWindowInfo["ID"])
             WinSetTransparent("Off", monitoredWindow)
-            showTraytip("The script has failed to perform a task to " monitoredWindowInfo["EXE"] "'s monitored window: '" monitoredWindowInfo["TITLE"] "' (" monitoredWindowInfo["ID"] ")", "Anti-AFK has failed to perform a process' task", "Iconx", -35000)
+            showTraytip(Format("The script has failed to perform a task to {1}'s monitored window: '{2}' ({3})", monitoredWindowInfo["EXE"], monitoredWindowInfo["TITLE"], monitoredWindowInfo["ID"]), "Anti-AFK has failed to perform a process' task", "Iconx", -35000)
             return
         }
 
         invokeProcessTask()
         WinMoveBottom(monitoredWindow)
-        logDebug("[" monitoredWindowInfo["EXE"] "] [Window ID: " monitoredWindowInfo["ID"] "] Inactive Monitored Window invokeProcessTask() successful!")
+        logDebug("[{1}] [Window ID: {2}] Inactive Monitored Window invokeProcessTask() successful!", monitoredWindowInfo["EXE"], monitoredWindowInfo["ID"])
     }
     finally
     {
@@ -807,7 +806,7 @@ performProcessTask(windowId, invokeProcessTask, isInputBlock)
         }
 
         blockUserInput("Off", isInputBlock)
-        logDebug("[" monitoredWindowInfo["EXE"] "] [Window ID: " monitoredWindowInfo["ID"] "] @performProcessTask#finally: FINISHED")
+        logDebug("[{1}] [Window ID: {2}] @performProcessTask#finally: FINISHED", monitoredWindowInfo["EXE"], monitoredWindowInfo["ID"])
     }
 }
 
@@ -829,7 +828,7 @@ setNewWindowStatus(window, status, polls, pollsOnly := false)
 
 registerWindows(windows, process_name)
 {
-    monitoredProcess := "ahk_exe " process_name
+    monitoredProcess := Format("ahk_exe {1}", process_name)
     ; No windows found under this process, return the windows map immediately as empty in that case
     if (WinGetCount(monitoredProcess) < 1)
     {
@@ -843,7 +842,7 @@ registerWindows(windows, process_name)
     for , windowId in windowIds
     {
         ; This window is not targetable, do not set a map for this window id, skip it
-        if (!isWindowTargetable("ahk_id " windowId))
+        if (!isWindowTargetable(Format("ahk_id {1}", windowId)))
         {
             continue
         }
@@ -856,7 +855,7 @@ registerWindows(windows, process_name)
 
         ; In this process' windows map, set a new map for this window id
         windows[windowId] := Map()
-        logDebug("[" process_name "] [Window ID: " windowId "] Created window map")
+        logDebug("[{1}] [Window ID: {2}] Created window map", process_name, windowId)
         ; Initially mark it as ACTIVE
         setNewWindowStatus(windows[windowId], "ACTIVE", inactiveWindowTimeoutPolls)
     }
@@ -875,11 +874,11 @@ monitorWindows(windows, process_name)
     ; For every window in this process' windows
     for windowId, window in windows
     {
-        monitoredWindow := "ahk_id " windowId
+        monitoredWindow := Format("ahk_id {1}", windowId)
         ; This monitored window no longer exists, most likely closed by the user, delete it from the windows map
         if (!WinExist(monitoredWindow))
         {
-            logDebug("[" process_name "] [Window ID: " windowId "] Deleted window map as it was closed by the user!")
+            logDebug("[{1}] [Window ID: {2}] Deleted window map as it was closed by the user!", process_name, windowId)
             windows.Delete(windowId)
             continue
         }
@@ -899,7 +898,7 @@ monitorWindows(windows, process_name)
             ; User is present on an INACTIVE marked window or its polls is not yet reset
             ; Reset its polls and mark it as ACTIVE again
             setNewWindowStatus(window, "ACTIVE", inactiveWindowTimeoutPolls)
-            logDebug("[" process_name "] [Window ID: " windowId "] Active Monitored Window: User is NOT IDLE!")
+            logDebug("[{1}] [Window ID: {2}] Active Monitored Window: User is NOT IDLE!", process_name, windowId)
             continue
         }
 
@@ -908,12 +907,12 @@ monitorWindows(windows, process_name)
         if (isWindowActive && (window["status"] = "ACTIVE"))
         {
             setNewWindowStatus(window, "INACTIVE", 1, true)
-            logDebug("[" process_name "] [Window ID: " windowId "] Active Monitored Window: User is IDLE!")
+            logDebug("[{1}] [Window ID: {2}] Active Monitored Window: User is IDLE!", process_name, windowId)
         }
 
         ; User is ABSENT in this monitored window, they're present in a different window
         window["polls"] -= 1
-        logDebug("[" process_name "] [Window ID: " windowId "] " window["polls"] " / " inactiveWindowTimeoutPolls " polls remaining")
+        logDebug("[{1}] [Window ID: {2}] {3} / {4} polls remaining", process_name, windowId, window["polls"], inactiveWindowTimeoutPolls)
 
         ; This monitored window's been inactive for more than or equal to the configured INACTIVE_WINDOW_TIMEOUT_MS
         if (window["polls"] = 0)
@@ -946,7 +945,7 @@ registerProcesses(processes, monitorList)
         processes[process_name] := Map()
         ; and also with an empty windows map
         processes[process_name]["windows"] := Map()
-        logDebug("[" process_name "] Created process map")
+        logDebug("[{1}] Created process map", process_name)
     }
 
     ; After setting up the processes that have met the conditions, return the populated processes map
@@ -964,7 +963,7 @@ monitorProcesses()
             ; This monitored process no longer exists, most likely closed by the user, delete it from the processes map
             if (!ProcessExist(process_name))
             {
-                logDebug("[" process_name "] Deleted process map as it was closed by the user!")
+                logDebug("[{1}] Deleted process map as it was closed by the user!", process_name)
                 processes.Delete(process_name)
                 continue
             }
