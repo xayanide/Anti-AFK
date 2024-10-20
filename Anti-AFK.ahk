@@ -890,7 +890,7 @@ monitorWindows(windows, process_name)
         if (isWindowActive && (A_TimeIdlePhysical <= activeWindowTimeoutMs))
         {
             ; Polls' already been reset, reset only the polls
-            if (window["polls"] = inactiveWindowTimeoutPolls)
+            if ((window["polls"] = inactiveWindowTimeoutPolls) && (window["status"] = "ACTIVE"))
             {
                 setNewWindowStatus(window, "ACTIVE", inactiveWindowTimeoutPolls, true)
                 continue
