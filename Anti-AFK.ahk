@@ -831,14 +831,14 @@ registerWindows(windows, process_name)
 {
     monitoredProcess := "ahk_exe " process_name
     ; No windows found under this process, return the windows map immediately as empty in that case
-    if (WinGetCount("ahk_exe " process_name) < 1)
+    if (WinGetCount(monitoredProcess) < 1)
     {
         return windows
     }
 
     inactiveWindowTimeoutPolls := getTimeoutpolls(getAttributeValue("INACTIVE_WINDOW_TIMEOUT_MS", process_name))
     ; Retrieve all found unique ids (HWNDs) for this process' windows
-    windowIds := WinGetList("ahk_exe " process_name)
+    windowIds := WinGetList(monitoredProcess)
     ; For every window id found under this process
     for , windowId in windowIds
     {
@@ -865,7 +865,7 @@ registerWindows(windows, process_name)
     return windows
 }
 
-monitorWindows(&windows, process_name)
+monitorWindows(windows, process_name)
 {
     inactiveWindowTimeoutPolls := getTimeoutpolls(getAttributeValue("INACTIVE_WINDOW_TIMEOUT_MS", process_name))
     invokeProcessTask := getAttributeValue("PROCESS_TASK", process_name)
@@ -885,7 +885,7 @@ monitorWindows(&windows, process_name)
 
         isWindowActive := WinActive(monitoredWindow)
         ; User is PRESENT in this monitored window
-        ; User is NOT IDLING in this monitored window
+        ; User is NOT IDLING in this monitored window for less than or equal to the configured ACTIVE_WINDOW_TIMEOUT_MS
         if (isWindowActive && (A_TimeIdlePhysical <= getAttributeValue("ACTIVE_WINDOW_TIMEOUT_MS", process_name)))
         {
             ; elapsedInactivityTime's already been reset, reset only the polls
@@ -953,7 +953,7 @@ registerProcesses(processes, monitorList)
 monitorProcesses()
 {
     ; Monitoring operations START here
-    processes := registerProcesses(globals["states"]["Processes"], globals["config"]["MONITOR_LIST"])
+    processes := registerProcesses(globals["states"]["MonitoredProcesses"], globals["config"]["MONITOR_LIST"])
     if (processes.Count > 0)
     {
         for process_name, process in processes
@@ -973,7 +973,7 @@ monitorProcesses()
                 continue
             }
 
-            monitorWindows(&windows, process_name)
+            monitorWindows(windows, process_name)
         }
     }
 
@@ -989,13 +989,13 @@ InstallKeybdHook(true)
 InstallMouseHook(true)
 KeyHistory(0)
 globals["states"] := Map()
-globals["states"]["Processes"] := Map()
+globals["states"]["MonitoredProcesses"] := Map()
 globals["states"]["Tray"] := Map()
+globals["states"]["Tray"]["lastIconNumber"] := 0
+globals["states"]["Tray"]["lastIconTooltipText"] := ""
 globals["states"]["Tray"]["Counters"] := Map()
 globals["states"]["Tray"]["Counters"]["monitored"] := Map()
 globals["states"]["Tray"]["Counters"]["managed"] := Map()
-globals["states"]["Tray"]["lastIconNumber"] := 0
-globals["states"]["Tray"]["lastIconTooltipText"] := ""
 ; Initiate the first poll
 monitorProcesses()
 ; Monitor the processes again according to what's configured as its polling interval
