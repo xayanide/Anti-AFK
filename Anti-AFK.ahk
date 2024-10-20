@@ -204,7 +204,9 @@ globals["config"]["PROCESS_OVERRIDES"] := Map(
 ; --------------------
 
 logDebug(formatString, params*) {
-    OutputDebug(Format("[{1}] [DEBUG] {2}", A_Now, Format(formatString, params*)))
+    ; Format the current date and time to include AM/PM
+    timeString := FormatTime(A_Now, "dddd MMMM d, yyyy hh:mm:ss tt")
+    OutputDebug(Format("[{1}] [DEBUG] {2}", timeString, Format(formatString, params*)))
 }
 
 ; The calculated excess time of the polling interval and timeouts should be zero.
