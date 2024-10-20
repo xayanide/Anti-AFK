@@ -476,13 +476,13 @@ updateSystemTray(processes)
             tooltipText := "Managing:`n"
             for process_name, counter in managedWindows
             {
-                tooltipText .= Format("{1} - {2} windows(s)`n", process_name, counter)
+                tooltipText .= Format("{1} - {2} window(s)`n", process_name, counter)
             }
 
             tooltipText .= "`nMonitoring:`n"
             for process_name, counter in monitoredWindows
             {
-                tooltipText .= Format("{1} - {2} windows(s)`n", process_name, counter)
+                tooltipText .= Format("{1} - {2} window(s)`n", process_name, counter)
             }
 
             tooltipText := RTrim(tooltipText, "`n")
@@ -493,7 +493,7 @@ updateSystemTray(processes)
             tooltipText := "Managing:`n"
             for process_name, counter in managedWindows
             {
-                tooltipText .= Format("{1} - {2} windows(s)`n", process_name, counter)
+                tooltipText .= Format("{1} - {2} window(s)`n", process_name, counter)
             }
 
             tooltipText := RTrim(tooltipText, "`n")
@@ -506,7 +506,7 @@ updateSystemTray(processes)
         tooltipText := "Monitoring:`n"
         for process_name, counter in monitoredWindows
         {
-            tooltipText .= Format("{1} - {2} windows(s)`n", process_name, counter)
+            tooltipText .= Format("{1} - {2} window(s)`n", process_name, counter)
         }
 
         tooltipText := RTrim(tooltipText, "`n")
