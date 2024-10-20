@@ -856,8 +856,8 @@ registerWindows(windows, process_name)
         ; In this process' windows map, set a new map for this window id
         windows[windowId] := Map()
         logDebug("[{1}] [Window ID: {2}] Created window map", process_name, windowId)
-        ; Initially mark it as ACTIVE
-        setNewWindowStatus(windows[windowId], "ACTIVE", inactiveWindowTimeoutPolls)
+        ; Initially mark it as CREATED
+        setNewWindowStatus(windows[windowId], "CREATED", inactiveWindowTimeoutPolls)
     }
 
     ; After setting up all windows that have met the conditions, return the populated windows map
