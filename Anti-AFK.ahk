@@ -868,6 +868,7 @@ registerWindows(windows, process_name)
 monitorWindows(windows, process_name)
 {
     inactiveWindowTimeoutPolls := getTimeoutpolls(getAttributeValue("INACTIVE_WINDOW_TIMEOUT_MS", process_name))
+    activeWindowTimeoutMs := getAttributeValue("ACTIVE_WINDOW_TIMEOUT_MS", process_name)
     invokeProcessTask := getAttributeValue("PROCESS_TASK", process_name)
     isInputBlock := getAttributeValue("TASK_INPUT_BLOCK", process_name)
 
@@ -886,7 +887,7 @@ monitorWindows(windows, process_name)
         isWindowActive := WinActive(monitoredWindow)
         ; User is PRESENT in this monitored window
         ; User is NOT IDLING in this monitored window for less than or equal to the configured ACTIVE_WINDOW_TIMEOUT_MS
-        if (isWindowActive && (A_TimeIdlePhysical <= getAttributeValue("ACTIVE_WINDOW_TIMEOUT_MS", process_name)))
+        if (isWindowActive && (A_TimeIdlePhysical <= activeWindowTimeoutMs))
         {
             ; elapsedInactivityTime's already been reset, reset only the polls
             if (window["polls"] = inactiveWindowTimeoutPolls)
