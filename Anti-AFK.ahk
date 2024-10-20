@@ -418,8 +418,8 @@ requestElevation()
 
 updateSystemTray(processes)
 {
-    monitoredWindows := globals["states"]["Tray"]["Counters"]["monitored"]
-    managedWindows := globals["states"]["Tray"]["Counters"]["managed"]
+    monitoredWindows := globals["states"]["tray"]["counters"]["monitored"]
+    managedWindows := globals["states"]["tray"]["counters"]["managed"]
     ; Only iterate when there are processes
     if (processes.Count > 0)
     {
@@ -518,17 +518,17 @@ updateSystemTray(processes)
     }
 
     ; Update the tray icon only if it has changed
-    if (iconNumber != globals["states"]["Tray"]["lastIconNumber"])
+    if (iconNumber != globals["states"]["tray"]["lastIconNumber"])
     {
         TraySetIcon(A_AhkPath, iconNumber)
-        globals["states"]["Tray"]["lastIconNumber"] := iconNumber
+        globals["states"]["tray"]["lastIconNumber"] := iconNumber
     }
 
     ; Update the tooltip only if it has changed
-    if (tooltipText != globals["states"]["Tray"]["lastIconTooltipText"])
+    if (tooltipText != globals["states"]["tray"]["lastIconTooltipText"])
     {
         A_IconTip := tooltipText
-        globals["states"]["Tray"]["lastIconTooltipText"] := tooltipText
+        globals["states"]["tray"]["lastIconTooltipText"] := tooltipText
     }
 }
 
@@ -954,7 +954,7 @@ registerProcesses(processes, monitorList)
 monitorProcesses()
 {
     ; Monitoring operations START here
-    processes := registerProcesses(globals["states"]["MonitoredProcesses"], globals["config"]["MONITOR_LIST"])
+    processes := registerProcesses(globals["states"]["processes"], globals["config"]["MONITOR_LIST"])
     if (processes.Count > 0)
     {
         for process_name, process in processes
@@ -990,13 +990,13 @@ InstallKeybdHook(true)
 InstallMouseHook(true)
 KeyHistory(0)
 globals["states"] := Map()
-globals["states"]["MonitoredProcesses"] := Map()
-globals["states"]["Tray"] := Map()
-globals["states"]["Tray"]["lastIconNumber"] := 0
-globals["states"]["Tray"]["lastIconTooltipText"] := ""
-globals["states"]["Tray"]["Counters"] := Map()
-globals["states"]["Tray"]["Counters"]["monitored"] := Map()
-globals["states"]["Tray"]["Counters"]["managed"] := Map()
+globals["states"]["processes"] := Map()
+globals["states"]["tray"] := Map()
+globals["states"]["tray"]["lastIconNumber"] := 0
+globals["states"]["tray"]["lastIconTooltipText"] := ""
+globals["states"]["tray"]["counters"] := Map()
+globals["states"]["tray"]["counters"]["monitored"] := Map()
+globals["states"]["tray"]["counters"]["managed"] := Map()
 ; Initiate the first poll
 monitorProcesses()
 ; Monitor the processes again according to what's configured as its polling interval
