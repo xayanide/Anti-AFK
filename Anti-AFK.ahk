@@ -889,7 +889,7 @@ monitorWindows(windows, process_name)
         ; User is NOT IDLING in this monitored window for less than or equal to the configured ACTIVE_WINDOW_TIMEOUT_MS
         if (isWindowActive && (A_TimeIdlePhysical <= activeWindowTimeoutMs))
         {
-            ; elapsedInactivityTime's already been reset, reset only the polls
+            ; Polls already been reset, reset only the polls
             if (window["polls"] = inactiveWindowTimeoutPolls)
             {
                 setNewWindowStatus(window, "ACTIVE", inactiveWindowTimeoutPolls, true)
