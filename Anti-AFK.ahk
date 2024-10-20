@@ -868,7 +868,8 @@ registerWindows(windows, process_name)
 
 monitorWindows(windows, process_name)
 {
-    inactiveWindowTimeoutPolls := getTimeoutpolls(getAttributeValue("INACTIVE_WINDOW_TIMEOUT_MS", process_name))
+    inactiveWindowTimeoutMs := getAttributeValue("INACTIVE_WINDOW_TIMEOUT_MS", process_name)
+    inactiveWindowTimeoutPolls := getTimeoutpolls(inactiveWindowTimeoutMs)
     activeWindowTimeoutMs := getAttributeValue("ACTIVE_WINDOW_TIMEOUT_MS", process_name)
     invokeProcessTask := getAttributeValue("PROCESS_TASK", process_name)
     isInputBlock := getAttributeValue("TASK_INPUT_BLOCK", process_name)
@@ -919,8 +920,11 @@ monitorWindows(windows, process_name)
         ; This monitored window's been inactive for more than or equal to the configured INACTIVE_WINDOW_TIMEOUT_MS
         if (window["polls"] = 0)
         {
+            nextTaskTime := DateAdd(A_Now, (inactiveWindowTimeoutMs / 1000), 'Seconds')
+            timeString := FormatTime(nextTaskTime, "hh:mm:ss tt")
             setNewWindowStatus(window, "INACTIVE", inactiveWindowTimeoutPolls)
             performProcessTask(windowId, invokeProcessTask, isInputBlock)
+            logDebug("[{1}] [Window ID: {2}] Next process task @ {3}", process_name, windowId, timeString)
         }
     }
     ; Monitoring operations END here
