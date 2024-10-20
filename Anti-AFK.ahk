@@ -856,9 +856,9 @@ registerWindows(windows, process_name)
 
         ; In this process' windows map, set a new map for this window id
         windows[windowId] := Map()
+        logDebug("[" process_name "] [Window ID: " windowId "] Created window map")
         ; Initially mark it as ACTIVE
         setNewWindowStatus(windows[windowId], "ACTIVE", inactiveWindowTimeoutPolls)
-        logDebug("[" process_name "] [Window ID: " windowId "] Created window map")
     }
 
     ; After setting up all windows that have met the conditions, return the populated windows map
@@ -889,15 +889,17 @@ monitorWindows(windows, process_name)
         ; User is NOT IDLING in this monitored window for less than or equal to the configured ACTIVE_WINDOW_TIMEOUT_MS
         if (isWindowActive && (A_TimeIdlePhysical <= activeWindowTimeoutMs))
         {
-            ; Polls' already been reset, reset only the polls
+            ; User is present on an ACTIVE marked window's 
+            ; and its polls has already been reset, reset only its polls
             if ((window["polls"] = inactiveWindowTimeoutPolls) && (window["status"] = "ACTIVE"))
             {
                 setNewWindowStatus(window, "ACTIVE", inactiveWindowTimeoutPolls, true)
                 continue
             }
-
+            ; User is present on an INACTIVE marked window or its polls is not yet reset
+            ; Reset its polls and mark it as ACTIVE again
             setNewWindowStatus(window, "ACTIVE", inactiveWindowTimeoutPolls)
-            logDebug("[" process_name "] [Window ID: " windowId "] Active Monitored Window: User is NOT IDLE! Polls' been reset!")
+            logDebug("[" process_name "] [Window ID: " windowId "] Active Monitored Window: User is NOT IDLE!")
             continue
         }
 
