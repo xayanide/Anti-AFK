@@ -205,7 +205,9 @@ globals["config"]["PROCESS_OVERRIDES"] := Map(
             "TASK_RETRY_INTERVAL_MS", 5000,
             "TASK_INPUT_BLOCK", false,
             "PROCESS_TASK", () => (
-                Send("1")
+                Send("{= Down}")
+                Sleep(1000)
+                Send("{= Up}")
             )
         )
     ),
@@ -527,12 +529,12 @@ updateSystemTray(processes)
                     }
                 }
 
-                if ((monitoredWindows[process_name] = 0) || !monitoredWindows.Has(process_name))
+                if (monitoredWindows[process_name] = 0 || !monitoredWindows.Has(process_name))
                 {
                     monitoredWindows.Delete(process_name)
                 }
 
-                if ((managedWindows[process_name] = 0) || !managedWindows.Has(process_name))
+                if (managedWindows[process_name] = 0 || !managedWindows.Has(process_name))
                 {
                     managedWindows.Delete(process_name)
                 }
@@ -1066,6 +1068,17 @@ monitorProcesses()
             {
                 logDebug("[{1}] Deleted process map as it was closed by the user!", process_name)
                 processes.Delete(process_name)
+                monitoredWindows := globals["states"]["tray"]["counters"]["monitored"]
+                if (monitoredWindows.Has(process_name))
+                {
+                    monitoredWindows.Delete(process_name)
+                    continue
+                }
+                managedWindows := globals["states"]["tray"]["counters"]["managed"]
+                if (managedWindows.Has(process_name))
+                {
+                    managedWindows.Delete(process_name)
+                }
                 continue
             }
 
