@@ -68,8 +68,8 @@ globals["config"]["INACTIVE_WINDOW_TIMEOUT_MS"] := 180000
 ;   - Value must be divisible by POLLING_INTERVAL_MS (Divides evenly)
 ;   The script will let you know about invalid values if found.
 ; Default:
-; 60000 (60 seconds or 1 minute)
-globals["config"]["TASK_RETRY_INTERVAL_MS"] := 60000
+; 30000 (30 seconds)
+globals["config"]["TASK_RETRY_INTERVAL_MS"] := 30000
 
 ; TASK_INPUT_BLOCK (Boolean)
 ; Description:
