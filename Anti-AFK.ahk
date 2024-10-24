@@ -57,6 +57,20 @@ globals["config"]["ACTIVE_WINDOW_TIMEOUT_MS"] := 60000
 ; 180000 (180 seconds or 3 minutes)
 globals["config"]["INACTIVE_WINDOW_TIMEOUT_MS"] := 180000
 
+; TASK_RETRY_INTERVAL_MS (Integer, Milliseconds)
+; Description:
+;   This defines the interval for retrying the process's task when it fails to complete successfully.
+;   It should be significantly shorter than the INACTIVE_WINDOW_TIMEOUT_MS to allow for quick retries.
+;   Upon a successful execution, the script will revert to the standard INACTIVE_WINDOW_TIMEOUT_MS.
+; Notes:
+;   - Setting low values less than 3000ms (3 seconds) can be very disruptive and the script will prevent you from doing that.
+;   - Value must not be less than the configured POLLING_INTERVAL_MS, ACTIVE_WINDOW_TIMEOUT_MS and INACTIVE_WINDOW_TIMEOUT_MS.
+;   - Value must be divisible by POLLING_INTERVAL_MS (Divides evenly)
+;   The script will let you know about invalid values if found.
+; Default:
+; 60000 (60 seconds or 1 minute)
+globals["config"]["TASK_RETRY_INTERVAL_MS"] := 60000
+
 ; TASK_INPUT_BLOCK (Boolean)
 ; Description:
 ;   This tells the script whether you want to block any input temporarily when the tasks
@@ -125,6 +139,8 @@ globals["config"]["MONITOR_LIST"] := [
 ;             "ACTIVE_WINDOW_TIMEOUT_MS", 120000,
 ;             ; 10 minutes
 ;             "INACTIVE_WINDOW_TIMEOUT_MS", 600000,
+;             ; 1 minute
+;             "TASK_RETRY_INTERVAL_MS", 60000,
 ;             "TASK_INPUT_BLOCK", false,
 ;             "PROCESS_TASK", () => (
 ;                 Send("{Space Down}")
@@ -139,6 +155,8 @@ globals["config"]["MONITOR_LIST"] := [
 ;             "ACTIVE_WINDOW_TIMEOUT_MS", 20000,
 ;             ; 30 seconds
 ;             "INACTIVE_WINDOW_TIMEOUT_MS", 30000,
+;             ; 5 seconds
+;             "TASK_RETRY_INTERVAL_MS", 5000,
 ;             "TASK_INPUT_BLOCK", false,
 ;             "PROCESS_TASK", () => (
 ;                 Send("1")
@@ -151,6 +169,8 @@ globals["config"]["MONITOR_LIST"] := [
 ;             "ACTIVE_WINDOW_TIMEOUT_MS", 20000,
 ;             ; 30 seconds
 ;             "INACTIVE_WINDOW_TIMEOUT_MS", 30000,
+;             ; 5 seconds
+;             "TASK_RETRY_INTERVAL_MS", 5000,
 ;             "TASK_INPUT_BLOCK", false,
 ;             "PROCESS_TASK", () => (
 ;                 Send("1")
@@ -165,6 +185,8 @@ globals["config"]["PROCESS_OVERRIDES"] := Map(
             "ACTIVE_WINDOW_TIMEOUT_MS", 120000,
             ; 10 minutes
             "INACTIVE_WINDOW_TIMEOUT_MS", 600000,
+            ; 1 minute
+            "TASK_RETRY_INTERVAL_MS", 60000,
             "TASK_INPUT_BLOCK", false,
             "PROCESS_TASK", () => (
                 Send("{Space Down}")
@@ -179,6 +201,8 @@ globals["config"]["PROCESS_OVERRIDES"] := Map(
             "ACTIVE_WINDOW_TIMEOUT_MS", 20000,
             ; 30 seconds
             "INACTIVE_WINDOW_TIMEOUT_MS", 30000,
+            ; 5 seconds
+            "TASK_RETRY_INTERVAL_MS", 5000,
             "TASK_INPUT_BLOCK", false,
             "PROCESS_TASK", () => (
                 Send("1")
@@ -191,6 +215,8 @@ globals["config"]["PROCESS_OVERRIDES"] := Map(
             "ACTIVE_WINDOW_TIMEOUT_MS", 20000,
             ; 30 seconds
             "INACTIVE_WINDOW_TIMEOUT_MS", 30000,
+            ; 5 seconds
+            "TASK_RETRY_INTERVAL_MS", 5000,
             "TASK_INPUT_BLOCK", false,
             "PROCESS_TASK", () => (
                 Send("1")
@@ -203,7 +229,8 @@ globals["config"]["PROCESS_OVERRIDES"] := Map(
 ; Script
 ; --------------------
 
-logDebug(formatString, params*) {
+logDebug(formatString, params*)
+{
     ; Format the current date and time to include AM/PM
     timeString := FormatTime(A_Now, "dddd MMMM d, yyyy hh:mm:ss tt")
     OutputDebug(Format("[{1}] [DEBUG] {2}", timeString, Format(formatString, params*)))
@@ -250,7 +277,7 @@ validateConfigAndOverrides()
 
     if (pollingIntervalMs < 1000)
     {
-        validationMsg .=  Format("WARNING: The configured POLLING_INTERVAL_MS ({1}ms) is below 1000ms! This can significantly increase CPU usage and put a strain on your system's resources!`nWould you like to continue?", pollingIntervalMs)
+        validationMsg .= Format("WARNING: The configured POLLING_INTERVAL_MS ({1}ms) is below 1000ms! This can significantly increase CPU usage and put a strain on your system's resources!`nWould you like to continue?", pollingIntervalMs)
         userInput := MsgBox(validationMsg, , "YesNo Default2 Icon!")
         if (userInput = "No")
         {
@@ -262,22 +289,22 @@ validateConfigAndOverrides()
     configMsg := "Invalid configurations:`n"
     if (pollingIntervalMs > activeWindowTimeoutMs)
     {
-        configMsg .=  Format("- POLLING_INTERVAL_MS ({1}ms) > ACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, activeWindowTimeoutMs)
+        configMsg .= Format("- POLLING_INTERVAL_MS ({1}ms) > ACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, activeWindowTimeoutMs)
         configMsg .= "Polling interval must be lower than this setting!`n`n"
         isConfigPass := false
     }
 
     if (activeWindowTimeoutMs < 3000)
     {
-        configMsg .=  Format("- ACTIVE_WINDOW_TIMEOUT_MS ({1}ms)`n", activeWindowTimeoutMs)
+        configMsg .= Format("- ACTIVE_WINDOW_TIMEOUT_MS ({1}ms)`n", activeWindowTimeoutMs)
         configMsg .= "Must be at least 3000ms!`n`n"
         isConfigPass := false
     }
 
     if (!isDivisible(activeWindowTimeoutMs, pollingIntervalMs))
     {
-        configMsg .=  Format("- POLLING_INTERVAL_MS ({1}ms) is not divisible by ACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, activeWindowTimeoutMs)
-        configMsg .=  Format("A monitored window can be detected {1}ms late!`n", calculateExcessTime(activeWindowTimeoutMs, pollingIntervalMs))
+        configMsg .= Format("- POLLING_INTERVAL_MS ({1}ms) is not divisible by ACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, activeWindowTimeoutMs)
+        configMsg .= Format("A monitored window can be detected {1}ms late!`n", calculateExcessTime(activeWindowTimeoutMs, pollingIntervalMs))
         configMsg .= "Consider adjusting the polling interval and timeout value`n`n"
         sConfigPass := false
     }
@@ -285,23 +312,46 @@ validateConfigAndOverrides()
     inactiveWindowTimeoutMs := globals["config"]["INACTIVE_WINDOW_TIMEOUT_MS"]
     if (pollingIntervalMs > inactiveWindowTimeoutMs)
     {
-        configMsg .=  Format("- POLLING_INTERVAL_MS ({1}ms) > INACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, inactiveWindowTimeoutMs)
+        configMsg .= Format("- POLLING_INTERVAL_MS ({1}ms) > INACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, inactiveWindowTimeoutMs)
         configMsg .= "Polling interval must be lower than this setting!`n`n"
         isConfigPass := false
     }
 
     if (inactiveWindowTimeoutMs < 3000)
     {
-        configMsg .=  Format("- INACTIVE_WINDOW_TIMEOUT_MS ({1}ms)`n", inactiveWindowTimeoutMs)
+        configMsg .= Format("- INACTIVE_WINDOW_TIMEOUT_MS ({1}ms)`n", inactiveWindowTimeoutMs)
         configMsg .= "Must be at least 3000ms!`n`n"
         isConfigPass := false
     }
 
     if (!isDivisible(inactiveWindowTimeoutMs, pollingIntervalMs))
     {
-        configMsg .=  Format("- POLLING_INTERVAL_MS ({1}ms) is not divisible by INACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, inactiveWindowTimeoutMs)
-        configMsg .=  Format("An inactive window can be detected {1}ms late!`n", calculateExcessTime(inactiveWindowTimeoutMs, pollingIntervalMs))
-        configMsg .= "Consider adjusting the polling interval and timeout value`n`n"
+        configMsg .= Format("- POLLING_INTERVAL_MS ({1}ms) is not divisible by INACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, inactiveWindowTimeoutMs)
+        configMsg .= Format("An inactive window can be detected {1}ms late!`n", calculateExcessTime(inactiveWindowTimeoutMs, pollingIntervalMs))
+        configMsg .= "Consider adjusting the polling interval and timeout values`n`n"
+        isConfigPass := false
+    }
+
+    taskRetryIntervalMs := globals["config"]["TASK_RETRY_INTERVAL_MS"]
+    if (pollingIntervalMs > taskRetryIntervalMs)
+    {
+        configMsg .= Format("- POLLING_INTERVAL_MS ({1}ms) > TASK_RETRY_INTERVAL_MS ({2}ms)`n", pollingIntervalMs, taskRetryIntervalMs)
+        configMsg .= "Polling interval must be lower than this setting!`n`n"
+        isConfigPass := false
+    }
+
+    if (taskRetryIntervalMs < 3000)
+    {
+        configMsg .= Format("- TASK_RETRY_INTERVAL_MS ({1}ms)`n", taskRetryIntervalMs)
+        configMsg .= "Must be at least 3000ms!`n`n"
+        isConfigPass := false
+    }
+
+    if (!isDivisible(taskRetryIntervalMs, pollingIntervalMs))
+    {
+        configMsg .= Format("- POLLING_INTERVAL_MS ({1}ms) is not divisible by TASK_RETRY_INTERVAL_MS ({2}ms)`n", pollingIntervalMs, taskRetryIntervalMs)
+        configMsg .= Format("An inactive window can be detected {1}ms late!`n", calculateExcessTime(taskRetryIntervalMs, pollingIntervalMs))
+        configMsg .= "Consider adjusting the polling interval and task retry interval values`n`n"
         isConfigPass := false
     }
 
@@ -311,35 +361,51 @@ validateConfigAndOverrides()
         overrides := process["overrides"]
         overridesMsg .= "[" process_name "]`n"
 
-        overrideActive := overrides["ACTIVE_WINDOW_TIMEOUT_MS"]
-        if (overrides.Has("ACTIVE_WINDOW_TIMEOUT_MS") && (pollingIntervalMs > overrideActive))
+        overrideActiveMs := overrides["ACTIVE_WINDOW_TIMEOUT_MS"]
+        if (overrides.Has("ACTIVE_WINDOW_TIMEOUT_MS") && (pollingIntervalMs > overrideActiveMs))
         {
-            overridesMsg .=  Format("- POLLING_INTERVAL_MS ({1}ms) > ACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, overrideActive)
+            overridesMsg .= Format("- POLLING_INTERVAL_MS ({1}ms) > ACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, overrideActiveMs)
             overridesMsg .= "Polling interval must be lower than this override!`n`n"
             isOverridePass := false
         }
 
-        if (overrides.Has("ACTIVE_WINDOW_TIMEOUT_MS") && !isDivisible(overrideActive, pollingIntervalMs))
+        if (overrides.Has("ACTIVE_WINDOW_TIMEOUT_MS") && !isDivisible(overrideActiveMs, pollingIntervalMs))
         {
-            overridesMsg .=  Format("- POLLING_INTERVAL_MS ({1}ms) is not divisible by ACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, overrideActive)
-            overridesMsg .=  Format("A monitored window can be detected {1}ms late!`n", calculateExcessTime(overrideActive, pollingIntervalMs))
-            overridesMsg .= "Consider adjusting the polling interval and timeout value`n`n"
+            overridesMsg .= Format("- POLLING_INTERVAL_MS ({1}ms) is not divisible by ACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, overrideActiveMs)
+            overridesMsg .= Format("A monitored window can be detected {1}ms late!`n", calculateExcessTime(overrideActiveMs, pollingIntervalMs))
+            overridesMsg .= "Consider adjusting the polling interval and timeout values`n`n"
             isOverridePass := false
         }
 
-        overrideInactive := overrides["INACTIVE_WINDOW_TIMEOUT_MS"]
-        if (overrides.Has("INACTIVE_WINDOW_TIMEOUT_MS") && (pollingIntervalMs > overrideInactive))
+        overrideInactiveMs := overrides["INACTIVE_WINDOW_TIMEOUT_MS"]
+        if (overrides.Has("INACTIVE_WINDOW_TIMEOUT_MS") && (pollingIntervalMs > overrideInactiveMs))
         {
-            overridesMsg .=  Format("- POLLING_INTERVAL_MS ({1}ms) > INACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, overrideInactive)
+            overridesMsg .= Format("- POLLING_INTERVAL_MS ({1}ms) > INACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, overrideInactiveMs)
             overridesMsg .= "Polling interval must be lower than this override!`n`n"
             isOverridePass := false
         }
 
-        if (overrides.Has("INACTIVE_WINDOW_TIMEOUT_MS") && !isDivisible(overrideInactive, pollingIntervalMs))
+        if (overrides.Has("INACTIVE_WINDOW_TIMEOUT_MS") && !isDivisible(overrideInactiveMs, pollingIntervalMs))
         {
-            overridesMsg .=  Format("- POLLING_INTERVAL_MS ({1}ms) is not divisible by INACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, overrideInactive)
-            overridesMsg .=  Format("An inactive window can be detected {1}ms late!`n", calculateExcessTime(overrideInactive, pollingIntervalMs))
-            overridesMsg .= "Consider adjusting the polling interval and timeout value`n`n"
+            overridesMsg .= Format("- POLLING_INTERVAL_MS ({1}ms) is not divisible by INACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, overrideInactiveMs)
+            overridesMsg .= Format("An inactive window can be detected {1}ms late!`n", calculateExcessTime(overrideInactiveMs, pollingIntervalMs))
+            overridesMsg .= "Consider adjusting the polling interval and timeout values`n`n"
+            isOverridePass := false
+        }
+
+        overrideTaskRetryMs := overrides["TASK_RETRY_INTERVAL_MS"]
+        if (overrides.Has("TASK_RETRY_INTERVAL_MS") && (pollingIntervalMs > overrideTaskRetryMs))
+        {
+            overridesMsg .= Format("- POLLING_INTERVAL_MS ({1}ms) > TASK_RETRY_INTERVAL_MS ({2}ms)`n", pollingIntervalMs, overrideTaskRetryMs)
+            overridesMsg .= "Polling interval must be lower than this override!`n`n"
+            isOverridePass := false
+        }
+
+        if (overrides.Has("TASK_RETRY_INTERVAL_MS") && !isDivisible(overrideTaskRetryMs, pollingIntervalMs))
+        {
+            overridesMsg .= Format("- POLLING_INTERVAL_MS ({1}ms) is not divisible by TASK_RETRY_INTERVAL_MS ({2}ms)`n", pollingIntervalMs, overrideTaskRetryMs)
+            overridesMsg .= Format("An inactive window can be detected {1}ms late!`n", calculateExcessTime(overrideTaskRetryMs, pollingIntervalMs))
+            overridesMsg .= "Consider adjusting the polling interval and task retry interval values`n`n"
             isOverridePass := false
         }
 
@@ -859,8 +925,8 @@ registerWindows(windows, process_name)
         ; In this process' windows map, set a new map for this window id
         windows[windowId] := Map()
         logDebug("[{1}] [Window ID: {2}] Created window map", process_name, windowId)
-        ; Initially mark it as CREATED
-        setNewWindowStatus(windows[windowId], "CREATED", inactiveWindowTimeoutPolls)
+        ; Initially mark it as ACTIVE
+        setNewWindowStatus(windows[windowId], "ACTIVE", inactiveWindowTimeoutPolls)
     }
 
     ; After setting up all windows that have met the conditions, return the populated windows map
@@ -869,10 +935,12 @@ registerWindows(windows, process_name)
 
 monitorWindows(windows, process_name)
 {
-    inactiveWindowTimeoutMs := getAttributeValue("INACTIVE_WINDOW_TIMEOUT_MS", process_name)
-    inactiveWindowTimeoutPolls := getTimeoutpolls(inactiveWindowTimeoutMs)
     activeWindowTimeoutMs := getAttributeValue("ACTIVE_WINDOW_TIMEOUT_MS", process_name)
     activeWindowTimeoutPolls := getTimeoutpolls(activeWindowTimeoutMs)
+    inactiveWindowTimeoutMs := getAttributeValue("INACTIVE_WINDOW_TIMEOUT_MS", process_name)
+    inactiveWindowTimeoutPolls := getTimeoutpolls(inactiveWindowTimeoutMs)
+    taskRetryIntervalMs := getAttributeValue("TASK_RETRY_INTERVAL_MS", process_name)
+    taskRetryIntervalPolls := getTimeoutpolls(taskRetryIntervalMs)
     invokeProcessTask := getAttributeValue("PROCESS_TASK", process_name)
     isInputBlock := getAttributeValue("TASK_INPUT_BLOCK", process_name)
 
@@ -893,7 +961,7 @@ monitorWindows(windows, process_name)
         ; User is NOT IDLING in this monitored window for less than or equal to the configured ACTIVE_WINDOW_TIMEOUT_MS
         if (isWindowActive && (A_TimeIdlePhysical <= activeWindowTimeoutMs))
         {
-            ; User is present on an ACTIVE marked window's 
+            ; User is present on an ACTIVE marked window
             ; and its polls has already been reset, reset only its polls
             if ((window["polls"] = inactiveWindowTimeoutPolls) && (window["status"] = "ACTIVE"))
             {
@@ -925,11 +993,12 @@ monitorWindows(windows, process_name)
             nextTaskTime := ""
             timeString := ""
             isSuccess := performProcessTask(windowId, invokeProcessTask, isInputBlock)
-            if (!isSuccess) 
+            ; Task finished unsuccessfully, retry the task in a much earlier time
+            if (!isSuccess)
             {
-                nextTaskTime := DateAdd(A_Now, (activeWindowTimeoutMs / 1000), 'Seconds')
+                nextTaskTime := DateAdd(A_Now, (taskRetryIntervalMs / 1000), 'Seconds')
                 timeString := FormatTime(nextTaskTime, "hh:mm:ss tt")
-                setNewWindowStatus(window, "INACTIVE", activeWindowTimeoutPolls)
+                setNewWindowStatus(window, "INACTIVE", taskRetryIntervalPolls)
                 logDebug("[{1}] [Window ID: {2}] Next process task @ {3}", process_name, windowId, timeString)
                 continue
             }
