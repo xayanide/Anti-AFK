@@ -724,7 +724,7 @@ performProcessTask(windowId, invokeProcessTask, isInputBlock)
         invokeProcessTask()
         logDebug("[{1}] [Window ID: {2}] Active Monitored Window invokeProcessTask() successful!", monitoredWindowInfo["EXE"], monitoredWindowInfo["ID"])
         logDebug("[{1}] [Window ID: {2}] @performProcessTask: FINISHED", monitoredWindowInfo["EXE"], monitoredWindowInfo["ID"])
-        return
+        return true
     }
 
     activeWindowInfo := getWindowInfo(activeWindow)
@@ -745,12 +745,12 @@ performProcessTask(windowId, invokeProcessTask, isInputBlock)
             {
                 logDebug("[{1}] [Window ID: {2}] Inactive Monitored Window invokeProcessTask() failed!", monitoredWindowInfo["EXE"], monitoredWindowInfo["ID"])
                 showTraytip(Format("The script has failed to perform a task to {1}'s monitored window: '{2}' ({3})", monitoredWindowInfo["EXE"], monitoredWindowInfo["TITLE"], monitoredWindowInfo["ID"]), "Anti-AFK has failed to perform a process' task", "Iconx", -35000)
-                return
+                return false
             }
             invokeProcessTask()
             WinMoveBottom(monitoredWindow)
             logDebug("[{1}] [Window ID: {2}] Inactive Monitored Window invokeProcessTask() successful!", monitoredWindowInfo["EXE"], monitoredWindowInfo["ID"])
-            return
+            return true
         }
 
         logDebug("[Active Window INFO] : [CLS: {1}] [ID: {2}] [PID: {3}] [EXE: {4}]", activeWindowInfo["CLS"], activeWindowInfo["PID"], activeWindowInfo["ID"], activeWindowInfo["EXE"])
@@ -785,12 +785,13 @@ performProcessTask(windowId, invokeProcessTask, isInputBlock)
             logDebug("[{1}] [Window ID: {2}] Inactive Monitored Window invokeProcessTask() failed!", monitoredWindowInfo["EXE"], monitoredWindowInfo["ID"])
             WinSetTransparent("Off", monitoredWindow)
             showTraytip(Format("The script has failed to perform a task to {1}'s monitored window: '{2}' ({3})", monitoredWindowInfo["EXE"], monitoredWindowInfo["TITLE"], monitoredWindowInfo["ID"]), "Anti-AFK has failed to perform a process' task", "Iconx", -35000)
-            return
+            return false
         }
 
         invokeProcessTask()
         WinMoveBottom(monitoredWindow)
         logDebug("[{1}] [Window ID: {2}] Inactive Monitored Window invokeProcessTask() successful!", monitoredWindowInfo["EXE"], monitoredWindowInfo["ID"])
+        return true
     }
     finally
     {
@@ -871,6 +872,7 @@ monitorWindows(windows, process_name)
     inactiveWindowTimeoutMs := getAttributeValue("INACTIVE_WINDOW_TIMEOUT_MS", process_name)
     inactiveWindowTimeoutPolls := getTimeoutpolls(inactiveWindowTimeoutMs)
     activeWindowTimeoutMs := getAttributeValue("ACTIVE_WINDOW_TIMEOUT_MS", process_name)
+    activeWindowTimeoutPolls := getTimeoutpolls(activeWindowTimeoutMs)
     invokeProcessTask := getAttributeValue("PROCESS_TASK", process_name)
     isInputBlock := getAttributeValue("TASK_INPUT_BLOCK", process_name)
 
@@ -922,8 +924,13 @@ monitorWindows(windows, process_name)
         {
             nextTaskTime := DateAdd(A_Now, (inactiveWindowTimeoutMs / 1000), 'Seconds')
             timeString := FormatTime(nextTaskTime, "hh:mm:ss tt")
+            isSuccess := performProcessTask(windowId, invokeProcessTask, isInputBlock)
+            if (!isSuccess) 
+            {
+                setNewWindowStatus(window, "INACTIVE", activeWindowTimeoutPolls)
+                continue
+            }
             setNewWindowStatus(window, "INACTIVE", inactiveWindowTimeoutPolls)
-            performProcessTask(windowId, invokeProcessTask, isInputBlock)
             logDebug("[{1}] [Window ID: {2}] Next process task @ {3}", process_name, windowId, timeString)
         }
     }
