@@ -527,12 +527,12 @@ updateSystemTray(processes)
                     }
                 }
 
-                if (monitoredWindows[process_name] = 0)
+                if ((monitoredWindows[process_name] = 0) || !monitoredWindows.Has(process_name))
                 {
                     monitoredWindows.Delete(process_name)
                 }
 
-                if (managedWindows[process_name] = 0)
+                if ((managedWindows[process_name] = 0) || !managedWindows.Has(process_name))
                 {
                     managedWindows.Delete(process_name)
                 }
