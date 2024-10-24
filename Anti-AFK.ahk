@@ -100,9 +100,9 @@ globals["config"]["TASK_INPUT_BLOCK"] := false
 ;     Send("{Space Up}")
 ; )
 globals["config"]["PROCESS_TASK"] := () => (
-    Send("{Space Down}")
+    Send("{= Down}")
     Sleep(20)
-    Send("{Space Up}")
+    Send("{= Up}")
 )
 
 ; MONITOR_LIST (String Array)
@@ -189,9 +189,9 @@ globals["config"]["PROCESS_OVERRIDES"] := Map(
             "TASK_RETRY_INTERVAL_MS", 60000,
             "TASK_INPUT_BLOCK", false,
             "PROCESS_TASK", () => (
-                Send("{Space Down}")
+                Send("{= Down}")
                 Sleep(20)
-                Send("{Space Up}")
+                Send("{= Up}")
             )
         )
     ),
