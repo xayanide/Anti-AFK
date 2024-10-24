@@ -64,7 +64,7 @@ globals["config"]["INACTIVE_WINDOW_TIMEOUT_MS"] := 180000
 ;   Upon a successful execution, the script will revert to the standard INACTIVE_WINDOW_TIMEOUT_MS.
 ; Notes:
 ;   - Setting low values less than 3000ms (3 seconds) can be very disruptive and the script will prevent you from doing that.
-;   - Value must not be less than the configured POLLING_INTERVAL_MS, ACTIVE_WINDOW_TIMEOUT_MS and INACTIVE_WINDOW_TIMEOUT_MS.
+;   - Value must not be less than the configured INACTIVE_WINDOW_TIMEOUT_MS.
 ;   - Value must be divisible by POLLING_INTERVAL_MS (Divides evenly)
 ;   The script will let you know about invalid values if found.
 ; Default:
@@ -290,7 +290,7 @@ validateConfigAndOverrides()
     if (pollingIntervalMs > activeWindowTimeoutMs)
     {
         configMsg .= Format("- POLLING_INTERVAL_MS ({1}ms) > ACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, activeWindowTimeoutMs)
-        configMsg .= "Polling interval must be lower than this setting!`n`n"
+        configMsg .= "POLLING_INTERVAL_MS must be lower than ACTIVE_WINDOW_TIMEOUT_MS!`n`n"
         isConfigPass := false
     }
 
@@ -313,7 +313,7 @@ validateConfigAndOverrides()
     if (pollingIntervalMs > inactiveWindowTimeoutMs)
     {
         configMsg .= Format("- POLLING_INTERVAL_MS ({1}ms) > INACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, inactiveWindowTimeoutMs)
-        configMsg .= "Polling interval must be lower than this setting!`n`n"
+        configMsg .= "POLLING_INTERVAL_MS must be lower than INACTIVE_WINDOW_TIMEOUT_MS!`n`n"
         isConfigPass := false
     }
 
@@ -336,7 +336,7 @@ validateConfigAndOverrides()
     if (pollingIntervalMs > taskRetryIntervalMs)
     {
         configMsg .= Format("- POLLING_INTERVAL_MS ({1}ms) > TASK_RETRY_INTERVAL_MS ({2}ms)`n", pollingIntervalMs, taskRetryIntervalMs)
-        configMsg .= "Polling interval must be lower than this setting!`n`n"
+        configMsg .= "POLLING_INTERVAL_MS must be lower than TASK_RETRY_INTERVAL_MS!`n`n"
         isConfigPass := false
     }
 
@@ -352,6 +352,13 @@ validateConfigAndOverrides()
         configMsg .= Format("- POLLING_INTERVAL_MS ({1}ms) is not divisible by TASK_RETRY_INTERVAL_MS ({2}ms)`n", pollingIntervalMs, taskRetryIntervalMs)
         configMsg .= Format("An inactive window can be detected {1}ms late!`n", calculateExcessTime(taskRetryIntervalMs, pollingIntervalMs))
         configMsg .= "Consider adjusting the polling interval and task retry interval values`n`n"
+        isConfigPass := false
+    }
+
+    if (taskRetryIntervalMs > inactiveWindowTimeoutMs)
+    {
+        configMsg .= Format("- TASK_RETRY_INTERVAL_MS ({1}ms) > INACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", taskRetryIntervalMs, inactiveWindowTimeoutMs)
+        configMsg .= "TASK_RETRY_INTERVAL_MS must be lower than INACTIVE_WINDOW_TIMEOUT_MS!`n`n"
         isConfigPass := false
     }
 
@@ -407,6 +414,13 @@ validateConfigAndOverrides()
             overridesMsg .= Format("An inactive window can be detected {1}ms late!`n", calculateExcessTime(overrideTaskRetryMs, pollingIntervalMs))
             overridesMsg .= "Consider adjusting the polling interval and task retry interval values`n`n"
             isOverridePass := false
+        }
+
+        if (overrideTaskRetryMs > overrideInactiveMs)
+        {
+            configMsg .= Format("- TASK_RETRY_INTERVAL_MS ({1}ms) > INACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", overrideTaskRetryMs, overrideInactiveMs)
+            configMsg .= "TASK_RETRY_INTERVAL_MS must be lower than INACTIVE_WINDOW_TIMEOUT_MS!`n`n"
+            isConfigPass := false
         }
 
         if (isOverridePass)
