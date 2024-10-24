@@ -64,7 +64,7 @@ globals["config"]["INACTIVE_WINDOW_TIMEOUT_MS"] := 180000
 ;   Upon a successful execution, the script will revert to the standard INACTIVE_WINDOW_TIMEOUT_MS.
 ; Notes:
 ;   - Setting low values less than 3000ms (3 seconds) can be very disruptive and the script will prevent you from doing that.
-;   - Value must not be less than the configured INACTIVE_WINDOW_TIMEOUT_MS.
+;   - Value must be less than the configured INACTIVE_WINDOW_TIMEOUT_MS.
 ;   - Value must be divisible by POLLING_INTERVAL_MS (Divides evenly)
 ;   The script will let you know about invalid values if found.
 ; Default:
