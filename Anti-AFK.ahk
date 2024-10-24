@@ -20,7 +20,7 @@ globals["config"] := Map()
 ; Notes:
 ;   - Setting extremely low values means more frequent checks, which can increase CPU usage and potentially burden the system.
 ;   - 0 will prevent the script from running.
-;   - Value must not exceed the ACTIVE_WINDOW_TIMEOUT_MS and INACTIVE_WINDOW_TIMEOUT_MS.
+;   - Value must not exceed the ACTIVE_WINDOW_TIMEOUT_MS, INACTIVE_WINDOW_TIMEOUT_MS, and TASK_RETRY_INTERVAL_MS.
 ;   - Value must be a common factor of ACTIVE_WINDOW_TIMEOUT_MS and INACTIVE_WINDOW_TIMEOUT_MS to ensure that the polls aligns perfectly with the timeout.
 ;   The script will let you know about invalid values if found.
 ; Default:
