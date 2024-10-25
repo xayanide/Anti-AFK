@@ -95,14 +95,14 @@ globals["config"]["TASK_INPUT_BLOCK"] := false
 ;   https://www.autohotkey.com/boards/viewtopic.php?t=11084
 ; Default:
 ; config["PROCESS_TASK"] := () => (
-;     Send("{Space Down}")
+;     Send("{Space down}")
 ;     Sleep(20)
-;     Send("{Space Up}")
+;     Send("{Space up}")
 ; )
 globals["config"]["PROCESS_TASK"] := () => (
-    Send("{= Down}")
+    Send("{Space down}")
     Sleep(20)
-    Send("{= Up}")
+    Send("{Space up}")
 )
 
 ; MONITOR_LIST (String Array)
@@ -139,13 +139,17 @@ globals["config"]["MONITOR_LIST"] := [
 ;             "ACTIVE_WINDOW_TIMEOUT_MS", 120000,
 ;             ; 10 minutes
 ;             "INACTIVE_WINDOW_TIMEOUT_MS", 600000,
-;             ; 1 minute
-;             "TASK_RETRY_INTERVAL_MS", 60000,
+;             ; 30 seconds
+;             "TASK_RETRY_INTERVAL_MS", 30000,
 ;             "TASK_INPUT_BLOCK", false,
 ;             "PROCESS_TASK", () => (
-;                 Send("{Space Down}")
+;                 Send("{Tab down}")
 ;                 Sleep(20)
-;                 Send("{Space Up}")
+;                 Send("{Tab up}")
+;                 Sleep(20)
+;                 Send("{Tab down}")
+;                 Sleep(20)
+;                 Send("{Tab up}")
 ;             )
 ;         )
 ;     ),
@@ -185,13 +189,17 @@ globals["config"]["PROCESS_OVERRIDES"] := Map(
             "ACTIVE_WINDOW_TIMEOUT_MS", 120000,
             ; 10 minutes
             "INACTIVE_WINDOW_TIMEOUT_MS", 600000,
-            ; 1 minute
-            "TASK_RETRY_INTERVAL_MS", 60000,
+            ; 30 seconds
+            "TASK_RETRY_INTERVAL_MS", 30000,
             "TASK_INPUT_BLOCK", false,
             "PROCESS_TASK", () => (
-                Send("{= Down}")
+                Send("{Tab down}")
                 Sleep(20)
-                Send("{= Up}")
+                Send("{Tab up}")
+                Sleep(20)
+                Send("{Tab down}")
+                Sleep(20)
+                Send("{Tab up}")
             )
         )
     ),
@@ -205,9 +213,7 @@ globals["config"]["PROCESS_OVERRIDES"] := Map(
             "TASK_RETRY_INTERVAL_MS", 5000,
             "TASK_INPUT_BLOCK", false,
             "PROCESS_TASK", () => (
-                Send("{= Down}")
-                Sleep(1000)
-                Send("{= Up}")
+                Send("1")
             )
         )
     ),
