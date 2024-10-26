@@ -505,70 +505,23 @@ requestElevation()
     )
 }
 
-updateSystemTray(processes)
+updateSystemTray(monitoredCounters, managedCounters)
 {
-    monitoredWindows := globals["states"]["tray"]["counters"]["monitored"]
-    managedWindows := globals["states"]["tray"]["counters"]["managed"]
-    ; Only iterate when there are processes
-    if (processes.Count > 0)
-    {
-        for process_name, process in processes
-        {
-            windows := process["windows"]
-            ; Only iterate when there are windows for this process
-            if (windows.Count > 0)
-            {
-                monitoredWindows[process_name] := 0
-                managedWindows[process_name] := 0
-                ; For every window in this process' windows map
-                ; Count how many of those are are active and inactive
-                for , window in windows
-                {
-                    windowStatus := window["status"]
-                    if ((windowStatus = "ACTIVE") || (windowStatus = "CREATED"))
-                    {
-                        monitoredWindows[process_name] += 1
-                    }
-                    else if (windowStatus = "INACTIVE")
-                    {
-                        managedWindows[process_name] += 1
-                    }
-                }
-
-                if (monitoredWindows[process_name] = 0)
-                {
-                    monitoredWindows.Delete(process_name)
-                }
-
-                if (managedWindows[process_name] = 0)
-                {
-                    managedWindows.Delete(process_name)
-                }
-            }
-        }
-    }
-    ; None of the monitored processes are running, clear all the counters
-    else
-    {
-        monitoredWindows.Clear()
-        managedWindows.Clear()
-    }
-
     ; There are managed windows
-    if (managedWindows.Count > 0)
+    if (managedCounters.Count > 0)
     {
         iconNumber := 2
         ; There are also monitored windows
-        if (monitoredWindows.Count > 0)
+        if (monitoredCounters.Count > 0)
         {
             tooltipText := "Managing:`n"
-            for process_name, counter in managedWindows
+            for process_name, counter in managedCounters
             {
                 tooltipText .= Format("{1} - {2} window(s)`n", process_name, counter)
             }
 
             tooltipText .= "`nMonitoring:`n"
-            for process_name, counter in monitoredWindows
+            for process_name, counter in monitoredCounters
             {
                 tooltipText .= Format("{1} - {2} window(s)`n", process_name, counter)
             }
@@ -579,7 +532,7 @@ updateSystemTray(processes)
         else
         {
             tooltipText := "Managing:`n"
-            for process_name, counter in managedWindows
+            for process_name, counter in managedCounters
             {
                 tooltipText .= Format("{1} - {2} window(s)`n", process_name, counter)
             }
@@ -588,11 +541,11 @@ updateSystemTray(processes)
         }
     }
     ; There are only monitored windows
-    else if (monitoredWindows.Count > 0)
+    else if (monitoredCounters.Count > 0)
     {
         iconNumber := 3
         tooltipText := "Monitoring:`n"
-        for process_name, counter in monitoredWindows
+        for process_name, counter in monitoredCounters
         {
             tooltipText .= Format("{1} - {2} window(s)`n", process_name, counter)
         }
@@ -709,12 +662,9 @@ activateWindow(window)
 getAttributeValue(attributeName, process_name)
 {
     processOverrides := globals["config"]["PROCESS_OVERRIDES"]
-    if (processOverrides.Has(process_name))
+    if (processOverrides.Has(process_name) && processOverrides[process_name]["overrides"].Has(attributeName))
     {
-        if (processOverrides[process_name]["overrides"].Has(attributeName))
-        {
-            return processOverrides[process_name]["overrides"][attributeName]
-        }
+        return processOverrides[process_name]["overrides"][attributeName]
     }
     return globals["config"][attributeName]
 }
@@ -955,7 +905,7 @@ registerWindows(windows, process_name)
     return windows
 }
 
-monitorWindows(windows, process_name)
+monitorWindows(windows, process_name, monitoredCounters, managedCounters)
 {
     activeWindowTimeoutMs := getAttributeValue("ACTIVE_WINDOW_TIMEOUT_MS", process_name)
     activeWindowTimeoutPolls := getTimeoutpolls(activeWindowTimeoutMs)
@@ -978,6 +928,16 @@ monitorWindows(windows, process_name)
             continue
         }
 
+        windowStatus := window["status"]
+        if ((windowStatus = "ACTIVE") || (windowStatus = "CREATED"))
+        {
+            monitoredCounters[process_name] += 1
+        }
+        else if (windowStatus = "INACTIVE")
+        {
+            managedCounters[process_name] += 1
+        }
+
         isWindowActive := WinActive(monitoredWindow)
         ; User is PRESENT in this monitored window
         ; User is NOT IDLING in this monitored window for less than or equal to the configured ACTIVE_WINDOW_TIMEOUT_MS
@@ -985,7 +945,7 @@ monitorWindows(windows, process_name)
         {
             ; User is present on an ACTIVE marked window
             ; and its polls has already been reset, reset only its polls
-            if ((window["polls"] = inactiveWindowTimeoutPolls) && (window["status"] = "ACTIVE"))
+            if ((window["polls"] = inactiveWindowTimeoutPolls) && (windowStatus = "ACTIVE"))
             {
                 setNewWindowStatus(window, "ACTIVE", inactiveWindowTimeoutPolls, true)
                 continue
@@ -999,7 +959,7 @@ monitorWindows(windows, process_name)
 
         ; User is PRESENT in this monitored window
         ; User is IDLING in this monitored window for more than or equal to the configured ACTIVE_WINDOW_TIMEOUT_MS
-        if (isWindowActive && (window["status"] = "ACTIVE"))
+        if (isWindowActive && (windowStatus = "ACTIVE"))
         {
             setNewWindowStatus(window, "INACTIVE", 1, true)
             logDebug("[{1}] [Window ID: {2}] Active Monitored Window: User is IDLE!", process_name, windowId)
@@ -1009,26 +969,29 @@ monitorWindows(windows, process_name)
         window["polls"] -= 1
         logDebug("[{1}] [Window ID: {2}] {3} / {4} polls remaining", process_name, windowId, window["polls"], inactiveWindowTimeoutPolls)
 
-        ; This monitored window's been inactive for more than or equal to the configured INACTIVE_WINDOW_TIMEOUT_MS
-        if (window["polls"] = 0)
+        ; This monitored window's not yet been inactive for more than or equal to the configured INACTIVE_WINDOW_TIMEOUT_MS, do not perform task
+        if (window["polls"] != 0)
         {
-            nextTaskTime := ""
-            timeString := ""
-            isSuccess := performProcessTask(windowId, invokeProcessTask, isInputBlock)
-            ; Task finished unsuccessfully, retry the task in a much earlier time
-            if (!isSuccess)
-            {
-                nextTaskTime := DateAdd(A_Now, (taskRetryIntervalMs / 1000), 'Seconds')
-                timeString := FormatTime(nextTaskTime, "hh:mm:ss tt")
-                setNewWindowStatus(window, "INACTIVE", taskRetryIntervalPolls)
-                logDebug("[{1}] [Window ID: {2}] Next process task @ {3}", process_name, windowId, timeString)
-                continue
-            }
-            nextTaskTime := DateAdd(A_Now, (inactiveWindowTimeoutMs / 1000), 'Seconds')
-            timeString := FormatTime(nextTaskTime, "hh:mm:ss tt")
-            setNewWindowStatus(window, "INACTIVE", inactiveWindowTimeoutPolls)
-            logDebug("[{1}] [Window ID: {2}] Next process task @ {3}", process_name, windowId, timeString)
+            continue
         }
+
+        nextTaskTime := ""
+        timeString := ""
+        isSuccess := performProcessTask(windowId, invokeProcessTask, isInputBlock)
+        ; Task finished unsuccessfully, retry the task in a much earlier time
+        if (!isSuccess)
+        {
+            nextTaskTime := DateAdd(A_Now, (taskRetryIntervalMs / 1000), 'Seconds')
+            timeString := FormatTime(nextTaskTime, "hh:mm:ss tt")
+            setNewWindowStatus(window, "INACTIVE", taskRetryIntervalPolls)
+            logDebug("[{1}] [Window ID: {2}] Next process task @ {3}", process_name, windowId, timeString)
+            continue
+        }
+        nextTaskTime := DateAdd(A_Now, (inactiveWindowTimeoutMs / 1000), 'Seconds')
+        timeString := FormatTime(nextTaskTime, "hh:mm:ss tt")
+        setNewWindowStatus(window, "INACTIVE", inactiveWindowTimeoutPolls)
+        logDebug("[{1}] [Window ID: {2}] Next process task @ {3}", process_name, windowId, timeString)
+
     }
     ; Monitoring operations END here
 }
@@ -1038,7 +1001,7 @@ registerProcesses(processes, monitorList)
     ; For every process name configured by the user in the monitor list
     for , process_name in monitorList
     {
-        ; User is not running this process from the monitor list, do not reset
+        ; User is not running this process from the monitor list, do not set a new map
         if (!ProcessExist(process_name))
         {
             continue
@@ -1065,6 +1028,9 @@ monitorProcesses()
 {
     ; Monitoring operations START here
     processes := registerProcesses(globals["states"]["processes"], globals["config"]["MONITOR_LIST"])
+    monitoredCounters := globals["states"]["tray"]["counters"]["monitored"]
+    managedCounters := globals["states"]["tray"]["counters"]["managed"]
+
     if (processes.Count > 0)
     {
         for process_name, process in processes
@@ -1074,16 +1040,16 @@ monitorProcesses()
             {
                 logDebug("[{1}] Deleted process map as it was closed by the user!", process_name)
                 processes.Delete(process_name)
-                monitoredWindows := globals["states"]["tray"]["counters"]["monitored"]
-                if (monitoredWindows.Has(process_name))
+
+                if (monitoredCounters.Has(process_name))
                 {
-                    monitoredWindows.Delete(process_name)
+                    monitoredCounters.Delete(process_name)
                     continue
                 }
-                managedWindows := globals["states"]["tray"]["counters"]["managed"]
-                if (managedWindows.Has(process_name))
+
+                if (managedCounters.Has(process_name))
                 {
-                    managedWindows.Delete(process_name)
+                    managedCounters.Delete(process_name)
                 }
                 continue
             }
@@ -1095,12 +1061,30 @@ monitorProcesses()
                 continue
             }
 
-            monitorWindows(windows, process_name)
+            monitoredCounters[process_name] := 0
+            managedCounters[process_name] := 0
+
+            monitorWindows(windows, process_name, monitoredCounters, managedCounters)
+
+            if (monitoredCounters[process_name] = 0)
+            {
+                monitoredCounters.Delete(process_name)
+            }
+
+            if (managedCounters[process_name] = 0)
+            {
+                managedCounters.Delete(process_name)
+            }
         }
+    }
+    else
+    {
+        monitoredCounters.Clear()
+        managedCounters.Clear()
     }
 
     ; Reflect in the user's system tray the currently monitored processes and their windows
-    updateSystemTray(processes)
+    updateSystemTray(monitoredCounters, managedCounters)
 }
 
 validateConfigAndOverrides()
