@@ -1028,8 +1028,8 @@ monitorProcesses()
 {
     ; Monitoring operations START here
     processes := registerProcesses(globals["states"]["processes"], globals["config"]["MONITOR_LIST"])
-    monitoredCounters := globals["states"]["tray"]["counters"]["monitored"]
-    managedCounters := globals["states"]["tray"]["counters"]["managed"]
+    monitoredCounters := globals["states"]["tray"]["monitored"]
+    managedCounters := globals["states"]["tray"]["managed"]
 
     if (processes.Count > 0)
     {
@@ -1091,12 +1091,13 @@ InstallMouseHook(true)
 KeyHistory(0)
 globals["states"] := Map()
 globals["states"]["processes"] := Map()
+globals["states"]["processes"]["monitored"] := Map()
+globals["states"]["processes"]["managed"] := Map()
 globals["states"]["tray"] := Map()
+globals["states"]["tray"]["monitored"] := Map()
+globals["states"]["tray"]["managed"] := Map()
 globals["states"]["tray"]["lastIconNumber"] := 0
 globals["states"]["tray"]["lastIconTooltipText"] := ""
-globals["states"]["tray"]["counters"] := Map()
-globals["states"]["tray"]["counters"]["monitored"] := Map()
-globals["states"]["tray"]["counters"]["managed"] := Map()
 ; Initiate the first poll
 monitorProcesses()
 ; Monitor the processes again according to what's configured as its polling interval
