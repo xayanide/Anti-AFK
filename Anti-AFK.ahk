@@ -1077,11 +1077,6 @@ monitorProcesses()
             }
         }
     }
-    else
-    {
-        monitoredCounters.Clear()
-        managedCounters.Clear()
-    }
 
     ; Reflect in the user's system tray the currently monitored processes and their windows
     updateSystemTray(monitoredCounters, managedCounters)
