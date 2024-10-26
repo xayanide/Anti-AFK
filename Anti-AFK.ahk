@@ -102,8 +102,7 @@ globals["config"]["TASK_INPUT_BLOCK"] := false
 globals["config"]["PROCESS_TASK"] := () => (
     Send("{Space down}")
     Sleep(20)
-    Send("{Space up}")
-)
+    Send("{Space up}"))
 
 ; MONITOR_LIST (String Array)
 ; Description:
@@ -199,10 +198,7 @@ globals["config"]["PROCESS_OVERRIDES"] := Map(
                 Sleep(20)
                 Send("{Tab down}")
                 Sleep(20)
-                Send("{Tab up}")
-            )
-        )
-    ),
+                Send("{Tab up}")))),
     "notepad.exe", Map(
         "overrides", Map(
             ; 20 seconds
@@ -213,10 +209,7 @@ globals["config"]["PROCESS_OVERRIDES"] := Map(
             "TASK_RETRY_INTERVAL_MS", 5000,
             "TASK_INPUT_BLOCK", false,
             "PROCESS_TASK", () => (
-                Send("1")
-            )
-        )
-    ),
+                Send("1")))),
     "wordpad.exe", Map(
         "overrides", Map(
             ; 20 seconds
@@ -227,11 +220,7 @@ globals["config"]["PROCESS_OVERRIDES"] := Map(
             "TASK_RETRY_INTERVAL_MS", 5000,
             "TASK_INPUT_BLOCK", false,
             "PROCESS_TASK", () => (
-                Send("1")
-            )
-        )
-    )
-)
+                Send("1")))))
 
 ; --------------------
 ; Script
@@ -905,7 +894,7 @@ registerWindows(windows, process_name)
     return windows
 }
 
-monitorWindows(windows, process_name, monitoredCounters, managedCounters)
+monitorWindows(windows, process_name)
 {
     activeWindowTimeoutMs := getAttributeValue("ACTIVE_WINDOW_TIMEOUT_MS", process_name)
     activeWindowTimeoutPolls := getTimeoutpolls(activeWindowTimeoutMs)
@@ -929,15 +918,6 @@ monitorWindows(windows, process_name, monitoredCounters, managedCounters)
         }
 
         windowStatus := window["status"]
-        if ((windowStatus = "ACTIVE") || (windowStatus = "CREATED"))
-        {
-            monitoredCounters[process_name] += 1
-        }
-        else if (windowStatus = "INACTIVE")
-        {
-            managedCounters[process_name] += 1
-        }
-
         isWindowActive := WinActive(monitoredWindow)
         ; User is PRESENT in this monitored window
         ; User is NOT IDLING in this monitored window for less than or equal to the configured ACTIVE_WINDOW_TIMEOUT_MS
@@ -950,6 +930,7 @@ monitorWindows(windows, process_name, monitoredCounters, managedCounters)
                 setNewWindowStatus(window, "ACTIVE", inactiveWindowTimeoutPolls, true)
                 continue
             }
+
             ; User is present on an INACTIVE marked window or its polls is not yet reset
             ; Reset its polls and mark it as ACTIVE again
             setNewWindowStatus(window, "ACTIVE", inactiveWindowTimeoutPolls)
@@ -987,11 +968,11 @@ monitorWindows(windows, process_name, monitoredCounters, managedCounters)
             logDebug("[{1}] [Window ID: {2}] Next process task @ {3}", process_name, windowId, timeString)
             continue
         }
+
         nextTaskTime := DateAdd(A_Now, (inactiveWindowTimeoutMs / 1000), 'Seconds')
         timeString := FormatTime(nextTaskTime, "hh:mm:ss tt")
         setNewWindowStatus(window, "INACTIVE", inactiveWindowTimeoutPolls)
         logDebug("[{1}] [Window ID: {2}] Next process task @ {3}", process_name, windowId, timeString)
-
     }
     ; Monitoring operations END here
 }
@@ -1031,6 +1012,9 @@ monitorProcesses()
     monitoredCounters := globals["states"]["tray"]["monitored"]
     managedCounters := globals["states"]["tray"]["managed"]
 
+    monitoredCounters.Clear()
+    managedCounters.Clear()
+
     if (processes.Count > 0)
     {
         for process_name, process in processes
@@ -1040,17 +1024,6 @@ monitorProcesses()
             {
                 logDebug("[{1}] Deleted process map as it was closed by the user!", process_name)
                 processes.Delete(process_name)
-
-                if (monitoredCounters.Has(process_name))
-                {
-                    monitoredCounters.Delete(process_name)
-                    continue
-                }
-
-                if (managedCounters.Has(process_name))
-                {
-                    managedCounters.Delete(process_name)
-                }
                 continue
             }
 
@@ -1061,25 +1034,42 @@ monitorProcesses()
                 continue
             }
 
-            monitoredCounters[process_name] := 0
-            managedCounters[process_name] := 0
-
-            monitorWindows(windows, process_name, monitoredCounters, managedCounters)
-
-            if (monitoredCounters[process_name] = 0)
-            {
-                monitoredCounters.Delete(process_name)
-            }
-
-            if (managedCounters[process_name] = 0)
-            {
-                managedCounters.Delete(process_name)
-            }
+            monitorWindows(windows, process_name)
+            updateCounters(windows, process_name, monitoredCounters, managedCounters)
         }
     }
 
     ; Reflect in the user's system tray the currently monitored processes and their windows
     updateSystemTray(monitoredCounters, managedCounters)
+}
+
+updateCounters(windows, process_name, monitoredCounters, managedCounters)
+{
+    activeCount := 0
+    inactiveCount := 0
+
+    for , window in windows
+    {
+        windowStatus := window["status"]
+        if ((windowStatus = "ACTIVE") || (windowStatus = "CREATED"))
+        {
+            activeCount += 1
+        }
+        else if (windowStatus = "INACTIVE")
+        {
+            inactiveCount += 1
+        }
+    }
+
+    if (activeCount > 0)
+    {
+        monitoredCounters[process_name] := activeCount
+    }
+
+    if (inactiveCount > 0)
+    {
+        managedCounters[process_name] := inactiveCount
+    }
 }
 
 validateConfigAndOverrides()
@@ -1091,6 +1081,7 @@ InstallMouseHook(true)
 KeyHistory(0)
 globals["states"] := Map()
 globals["states"]["processes"] := Map()
+globals["states"]["tray"] := Map()
 globals["states"]["tray"] := Map()
 globals["states"]["tray"]["monitored"] := Map()
 globals["states"]["tray"]["managed"] := Map()
