@@ -102,7 +102,8 @@ globals["config"]["TASK_INPUT_BLOCK"] := false
 globals["config"]["PROCESS_TASK"] := () => (
     Send("{Space down}")
     Sleep(20)
-    Send("{Space up}"))
+    Send("{Space up}")
+)
 
 ; MONITOR_LIST (String Array)
 ; Description:
@@ -198,7 +199,10 @@ globals["config"]["PROCESS_OVERRIDES"] := Map(
                 Sleep(20)
                 Send("{Tab down}")
                 Sleep(20)
-                Send("{Tab up}")))),
+                Send("{Tab up}")
+            )
+        )
+    ),
     "notepad.exe", Map(
         "overrides", Map(
             ; 20 seconds
@@ -209,7 +213,10 @@ globals["config"]["PROCESS_OVERRIDES"] := Map(
             "TASK_RETRY_INTERVAL_MS", 5000,
             "TASK_INPUT_BLOCK", false,
             "PROCESS_TASK", () => (
-                Send("1")))),
+                Send("1")
+            )
+        )
+    ),
     "wordpad.exe", Map(
         "overrides", Map(
             ; 20 seconds
@@ -220,7 +227,11 @@ globals["config"]["PROCESS_OVERRIDES"] := Map(
             "TASK_RETRY_INTERVAL_MS", 5000,
             "TASK_INPUT_BLOCK", false,
             "PROCESS_TASK", () => (
-                Send("1")))))
+                Send("1")
+            )
+        )
+    )
+)
 
 ; --------------------
 ; Script
