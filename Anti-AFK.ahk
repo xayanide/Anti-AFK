@@ -2,8 +2,18 @@
 #SingleInstance
 #Warn All
 
-; Do not list lines (Commented for now)
+; Do not list lines
 ; ListLines(0)
+
+global globalConfig := Map()
+global globalStates := Map()
+globalStates["processes"] := Map()
+globalStates["tray"] := Map()
+globalStates["tray"] := Map()
+globalStates["tray"]["monitored"] := Map()
+globalStates["tray"]["managed"] := Map()
+globalStates["tray"]["lastIconNumber"] := 0
+globalStates["tray"]["lastIconTooltipText"] := ""
 
 ; --------------------
 ; Configuration
@@ -11,8 +21,6 @@
 ;   read the notes of each configuration. If necessary, refer to the AutoHotkey language syntax documentation here:
 ;   https://www.autohotkey.com/docs/v2/Language.htm
 ; --------------------
-global globalConfig := Map()
-global globalStates := Map()
 
 ; POLLING_INTERVAL_MS (Integer, Milliseconds)
 ; Description:
@@ -257,209 +265,6 @@ calculateExcessTime(timeoutMs, pollingIntervalMs)
     return totalExcessTime
 }
 
-isDivisible(dividend, divisor)
-{
-    if (divisor = 0)
-    {
-        return false
-    }
-    return (Mod(dividend, divisor) = 0)
-}
-
-validateConfigAndOverrides()
-{
-    ; TODO: Simplify logic.
-    isConfigPass := true
-    isOverridePass := true
-    invalidsMsg := ""
-    validationMsg := ""
-    pollingIntervalMs := globalConfig["POLLING_INTERVAL_MS"]
-    if (pollingIntervalMs <= 0)
-    {
-        validationMsg .= Format("ERROR: The configured POLLING_INTERVAL_MS ({1}ms) is less than or equal to 0. The script will exit immediately.", pollingIntervalMs)
-        MsgBox(validationMsg, , "OK Iconx")
-        ExitApp(1)
-    }
-
-    if (pollingIntervalMs < 1000)
-    {
-        validationMsg .= Format("WARNING: The configured POLLING_INTERVAL_MS ({1}ms) is below 1000ms! This can significantly increase CPU usage and put a strain on your system's resources!`nWould you like to continue?", pollingIntervalMs)
-        userInput := MsgBox(validationMsg, , "YesNo Default2 Icon!")
-        if (userInput = "No")
-        {
-            ExitApp(0)
-        }
-    }
-
-    activeWindowTimeoutMs := globalConfig["ACTIVE_WINDOW_TIMEOUT_MS"]
-    configMsg := "Invalid configurations:`n"
-    if (pollingIntervalMs > activeWindowTimeoutMs)
-    {
-        configMsg .= Format("- POLLING_INTERVAL_MS ({1}ms) > ACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, activeWindowTimeoutMs)
-        configMsg .= "POLLING_INTERVAL_MS must be lower than ACTIVE_WINDOW_TIMEOUT_MS!`n`n"
-        isConfigPass := false
-    }
-
-    if (activeWindowTimeoutMs < 3000)
-    {
-        configMsg .= Format("- ACTIVE_WINDOW_TIMEOUT_MS ({1}ms)`n", activeWindowTimeoutMs)
-        configMsg .= "Must be at least 3000ms!`n`n"
-        isConfigPass := false
-    }
-
-    if (!isDivisible(activeWindowTimeoutMs, pollingIntervalMs))
-    {
-        configMsg .= Format("- POLLING_INTERVAL_MS ({1}ms) is not divisible by ACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, activeWindowTimeoutMs)
-        configMsg .= Format("A monitored window can be detected {1}ms late!`n", calculateExcessTime(activeWindowTimeoutMs, pollingIntervalMs))
-        configMsg .= "Consider adjusting the polling interval and timeout value`n`n"
-        sConfigPass := false
-    }
-
-    inactiveWindowTimeoutMs := globalConfig["INACTIVE_WINDOW_TIMEOUT_MS"]
-    if (pollingIntervalMs > inactiveWindowTimeoutMs)
-    {
-        configMsg .= Format("- POLLING_INTERVAL_MS ({1}ms) > INACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, inactiveWindowTimeoutMs)
-        configMsg .= "POLLING_INTERVAL_MS must be lower than INACTIVE_WINDOW_TIMEOUT_MS!`n`n"
-        isConfigPass := false
-    }
-
-    if (inactiveWindowTimeoutMs < 3000)
-    {
-        configMsg .= Format("- INACTIVE_WINDOW_TIMEOUT_MS ({1}ms)`n", inactiveWindowTimeoutMs)
-        configMsg .= "Must be at least 3000ms!`n`n"
-        isConfigPass := false
-    }
-
-    if (!isDivisible(inactiveWindowTimeoutMs, pollingIntervalMs))
-    {
-        configMsg .= Format("- POLLING_INTERVAL_MS ({1}ms) is not divisible by INACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, inactiveWindowTimeoutMs)
-        configMsg .= Format("An inactive window can be detected {1}ms late!`n", calculateExcessTime(inactiveWindowTimeoutMs, pollingIntervalMs))
-        configMsg .= "Consider adjusting the polling interval and timeout values`n`n"
-        isConfigPass := false
-    }
-
-    taskRetryIntervalMs := globalConfig["TASK_RETRY_INTERVAL_MS"]
-    if (pollingIntervalMs > taskRetryIntervalMs)
-    {
-        configMsg .= Format("- POLLING_INTERVAL_MS ({1}ms) > TASK_RETRY_INTERVAL_MS ({2}ms)`n", pollingIntervalMs, taskRetryIntervalMs)
-        configMsg .= "POLLING_INTERVAL_MS must be lower than TASK_RETRY_INTERVAL_MS!`n`n"
-        isConfigPass := false
-    }
-
-    if (taskRetryIntervalMs < 3000)
-    {
-        configMsg .= Format("- TASK_RETRY_INTERVAL_MS ({1}ms)`n", taskRetryIntervalMs)
-        configMsg .= "Must be at least 3000ms!`n`n"
-        isConfigPass := false
-    }
-
-    if (!isDivisible(taskRetryIntervalMs, pollingIntervalMs))
-    {
-        configMsg .= Format("- POLLING_INTERVAL_MS ({1}ms) is not divisible by TASK_RETRY_INTERVAL_MS ({2}ms)`n", pollingIntervalMs, taskRetryIntervalMs)
-        configMsg .= Format("An inactive window can be detected {1}ms late!`n", calculateExcessTime(taskRetryIntervalMs, pollingIntervalMs))
-        configMsg .= "Consider adjusting the polling interval and task retry interval values`n`n"
-        isConfigPass := false
-    }
-
-    if (taskRetryIntervalMs > inactiveWindowTimeoutMs)
-    {
-        configMsg .= Format("- TASK_RETRY_INTERVAL_MS ({1}ms) > INACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", taskRetryIntervalMs, inactiveWindowTimeoutMs)
-        configMsg .= "TASK_RETRY_INTERVAL_MS must be lower than INACTIVE_WINDOW_TIMEOUT_MS!`n`n"
-        isConfigPass := false
-    }
-
-    overridesMsg := "Invalid overrides:`n"
-    for process_name, process in globalConfig["PROCESS_OVERRIDES"]
-    {
-        overrides := process["overrides"]
-        overridesMsg .= "[" process_name "]`n"
-
-        overrideActiveMs := overrides["ACTIVE_WINDOW_TIMEOUT_MS"]
-        if (overrides.Has("ACTIVE_WINDOW_TIMEOUT_MS") && (pollingIntervalMs > overrideActiveMs))
-        {
-            overridesMsg .= Format("- POLLING_INTERVAL_MS ({1}ms) > ACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, overrideActiveMs)
-            overridesMsg .= "Polling interval must be lower than this override!`n`n"
-            isOverridePass := false
-        }
-
-        if (overrides.Has("ACTIVE_WINDOW_TIMEOUT_MS") && !isDivisible(overrideActiveMs, pollingIntervalMs))
-        {
-            overridesMsg .= Format("- POLLING_INTERVAL_MS ({1}ms) is not divisible by ACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, overrideActiveMs)
-            overridesMsg .= Format("A monitored window can be detected {1}ms late!`n", calculateExcessTime(overrideActiveMs, pollingIntervalMs))
-            overridesMsg .= "Consider adjusting the polling interval and timeout values`n`n"
-            isOverridePass := false
-        }
-
-        overrideInactiveMs := overrides["INACTIVE_WINDOW_TIMEOUT_MS"]
-        if (overrides.Has("INACTIVE_WINDOW_TIMEOUT_MS") && (pollingIntervalMs > overrideInactiveMs))
-        {
-            overridesMsg .= Format("- POLLING_INTERVAL_MS ({1}ms) > INACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, overrideInactiveMs)
-            overridesMsg .= "Polling interval must be lower than this override!`n`n"
-            isOverridePass := false
-        }
-
-        if (overrides.Has("INACTIVE_WINDOW_TIMEOUT_MS") && !isDivisible(overrideInactiveMs, pollingIntervalMs))
-        {
-            overridesMsg .= Format("- POLLING_INTERVAL_MS ({1}ms) is not divisible by INACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, overrideInactiveMs)
-            overridesMsg .= Format("An inactive window can be detected {1}ms late!`n", calculateExcessTime(overrideInactiveMs, pollingIntervalMs))
-            overridesMsg .= "Consider adjusting the polling interval and timeout values`n`n"
-            isOverridePass := false
-        }
-
-        overrideTaskRetryMs := overrides["TASK_RETRY_INTERVAL_MS"]
-        if (overrides.Has("TASK_RETRY_INTERVAL_MS") && (pollingIntervalMs > overrideTaskRetryMs))
-        {
-            overridesMsg .= Format("- POLLING_INTERVAL_MS ({1}ms) > TASK_RETRY_INTERVAL_MS ({2}ms)`n", pollingIntervalMs, overrideTaskRetryMs)
-            overridesMsg .= "Polling interval must be lower than this override!`n`n"
-            isOverridePass := false
-        }
-
-        if (overrides.Has("TASK_RETRY_INTERVAL_MS") && !isDivisible(overrideTaskRetryMs, pollingIntervalMs))
-        {
-            overridesMsg .= Format("- POLLING_INTERVAL_MS ({1}ms) is not divisible by TASK_RETRY_INTERVAL_MS ({2}ms)`n", pollingIntervalMs, overrideTaskRetryMs)
-            overridesMsg .= Format("An inactive window can be detected {1}ms late!`n", calculateExcessTime(overrideTaskRetryMs, pollingIntervalMs))
-            overridesMsg .= "Consider adjusting the polling interval and task retry interval values`n`n"
-            isOverridePass := false
-        }
-
-        if (overrideTaskRetryMs > overrideInactiveMs)
-        {
-            configMsg .= Format("- TASK_RETRY_INTERVAL_MS ({1}ms) > INACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", overrideTaskRetryMs, overrideInactiveMs)
-            configMsg .= "TASK_RETRY_INTERVAL_MS must be lower than INACTIVE_WINDOW_TIMEOUT_MS!`n`n"
-            isConfigPass := false
-        }
-
-        if (isOverridePass)
-        {
-            overridesMsg := "Invalid overrides:`n"
-        }
-    }
-
-    if (!isConfigPass)
-    {
-        invalidsMsg .= configMsg
-    }
-
-    if (!isOverridePass)
-    {
-        invalidsMsg .= overridesMsg
-    }
-
-    ; If any validation fails, show the invalid values in the message box and exit the app
-    if (!isConfigPass || !isOverridePass)
-    {
-        validationMsg := "ERROR: Invalid values detected, the script is unable to proceed!`n"
-        validationMsg .= "Please review and adjust the following values accordingly.`n`n"
-        validationMsg .= invalidsMsg
-        MsgBox(validationMsg, , "OK Iconx")
-        ; Since this script is not that big, I don't want to make another condition for its returned values, exit right away instead
-        ExitApp(1)
-    }
-
-    ; If all conditions have passed
-    return true
-}
-
 requestElevation()
 {
     ; Ran as admin already, do nothing
@@ -468,17 +273,17 @@ requestElevation()
         return
     }
 
-    isAdminRequire := globalConfig["TASK_INPUT_BLOCK"]
+    isInputBlock := globalConfig["TASK_INPUT_BLOCK"]
     for , process in globalConfig["PROCESS_OVERRIDES"]
     {
         if (process["overrides"].Has("TASK_INPUT_BLOCK") && process["overrides"]["TASK_INPUT_BLOCK"])
         {
-            isAdminRequire := true
+            isInputBlock := true
         }
     }
 
     ; Admin not required, do nothing
-    if (!isAdminRequire)
+    if (!isInputBlock)
     {
         return
     }
@@ -849,7 +654,7 @@ performProcessTask(windowId, invokeProcessTask, isInputBlock)
     }
 }
 
-getTimeoutpolls(timeoutMs)
+getTimeoutPolls(timeoutMs)
 {
     return Max(1, Ceil(timeoutMs / globalConfig["POLLING_INTERVAL_MS"]))
 }
@@ -874,7 +679,7 @@ registerWindows(windows, process_name)
         return windows
     }
 
-    inactiveWindowTimeoutPolls := getTimeoutpolls(getAttributeValue("INACTIVE_WINDOW_TIMEOUT_MS", process_name))
+    inactiveWindowTimeoutPolls := getTimeoutPolls(getAttributeValue("INACTIVE_WINDOW_TIMEOUT_MS", process_name))
     ; Retrieve all found unique ids (HWNDs) for this process' windows
     windowIds := WinGetList(monitoredProcess)
     ; For every window id found under this process
@@ -906,11 +711,11 @@ registerWindows(windows, process_name)
 monitorWindows(windows, process_name)
 {
     activeWindowTimeoutMs := getAttributeValue("ACTIVE_WINDOW_TIMEOUT_MS", process_name)
-    activeWindowTimeoutPolls := getTimeoutpolls(activeWindowTimeoutMs)
+    activeWindowTimeoutPolls := getTimeoutPolls(activeWindowTimeoutMs)
     inactiveWindowTimeoutMs := getAttributeValue("INACTIVE_WINDOW_TIMEOUT_MS", process_name)
-    inactiveWindowTimeoutPolls := getTimeoutpolls(inactiveWindowTimeoutMs)
+    inactiveWindowTimeoutPolls := getTimeoutPolls(inactiveWindowTimeoutMs)
     taskRetryIntervalMs := getAttributeValue("TASK_RETRY_INTERVAL_MS", process_name)
-    taskRetryIntervalPolls := getTimeoutpolls(taskRetryIntervalMs)
+    taskRetryIntervalPolls := getTimeoutPolls(taskRetryIntervalMs)
     invokeProcessTask := getAttributeValue("PROCESS_TASK", process_name)
     isInputBlock := getAttributeValue("TASK_INPUT_BLOCK", process_name)
 
@@ -1081,21 +886,15 @@ updateCounters(windows, process_name, monitoredCounters, managedCounters)
     }
 }
 
-validateConfigAndOverrides()
 requestElevation()
-; Both of these exist for the simulated key presses in the task to not interfere with the script's timers.
-; One of those timers is A_TimeIdlePhysical
+
+; Both of these hooks exist for the simulated key presses in the task to not interfere with the script's timers.
+; One of those timers used is A_TimeIdlePhysical
 InstallKeybdHook(true)
 InstallMouseHook(true)
+
 KeyHistory(0)
-globalStates := Map()
-globalStates["processes"] := Map()
-globalStates["tray"] := Map()
-globalStates["tray"] := Map()
-globalStates["tray"]["monitored"] := Map()
-globalStates["tray"]["managed"] := Map()
-globalStates["tray"]["lastIconNumber"] := 0
-globalStates["tray"]["lastIconTooltipText"] := ""
+
 ; Initiate the first poll
 monitorProcesses()
 ; Monitor the processes again according to what's configured as its polling interval
