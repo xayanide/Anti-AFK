@@ -117,9 +117,7 @@ globals["config"]["PROCESS_TASK"] := () => (
 ;     "wordpad.exe"
 ; ]
 globals["config"]["MONITOR_LIST"] := [
-    "RobloxPlayerBeta.exe",
-    "notepad.exe",
-    "wordpad.exe"
+    "RobloxPlayerBeta.exe"
 ]
 
 ; PROCESS_OVERRIDES (Associative Array)
