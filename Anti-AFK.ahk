@@ -454,10 +454,14 @@ activateWindow(window)
 ; If an override has not been setup for that process, the default value from the configuration for all processes will be used instead.
 getAttributeValue(attributeName, process_name)
 {
-    processOverrides := globalConfig["PROCESS_OVERRIDES"]
-    if (processOverrides.Has(process_name) && processOverrides[process_name]["overrides"].Has(attributeName))
+    configuredOverrides := globalConfig["PROCESS_OVERRIDES"]
+    if (configuredOverrides.Has(process_name))
     {
-        return processOverrides[process_name]["overrides"][attributeName]
+        processOverrides := configuredOverrides[process_name]["overrides"]
+        if (processOverrides.Has(attributeName))
+        {
+            return processOverrides[attributeName]
+        }
     }
     return globalConfig[attributeName]
 }
