@@ -664,7 +664,7 @@ setNewWindowStatus(window, status, polls, pollsOnly := false)
     window["polls"] := polls
 }
 
-registerWindows(windows, process_name)
+registerWindows(windows, process_name, inactiveWindowTimeoutPolls)
 {
     monitoredProcess := Format("ahk_exe {1}", process_name)
     ; No windows found under this process, return the windows map immediately as empty in that case
@@ -672,8 +672,6 @@ registerWindows(windows, process_name)
     {
         return windows
     }
-
-    inactiveWindowTimeoutPolls := getTimeoutPolls(getAttributeValue("INACTIVE_WINDOW_TIMEOUT_MS", process_name))
     ; Retrieve all found unique ids (HWNDs) for this process' windows
     windowIds := WinGetList(monitoredProcess)
     ; For every window id found under this process
@@ -702,16 +700,16 @@ registerWindows(windows, process_name)
     return windows
 }
 
-monitorWindows(windows, process_name)
+monitorWindows(windows, process_name, processAttributes)
 {
-    activeWindowTimeoutMs := getAttributeValue("ACTIVE_WINDOW_TIMEOUT_MS", process_name)
-    activeWindowTimeoutPolls := getTimeoutPolls(activeWindowTimeoutMs)
-    inactiveWindowTimeoutMs := getAttributeValue("INACTIVE_WINDOW_TIMEOUT_MS", process_name)
-    inactiveWindowTimeoutPolls := getTimeoutPolls(inactiveWindowTimeoutMs)
-    taskRetryIntervalMs := getAttributeValue("TASK_RETRY_INTERVAL_MS", process_name)
-    taskRetryIntervalPolls := getTimeoutPolls(taskRetryIntervalMs)
-    invokeProcessTask := getAttributeValue("PROCESS_TASK", process_name)
-    isInputBlock := getAttributeValue("TASK_INPUT_BLOCK", process_name)
+    activeWindowTimeoutMs := processAttributes["activeWindowTimeoutMs"]
+    activeWindowTimeoutPolls := processAttributes["activeWindowTimeoutPolls"]
+    inactiveWindowTimeoutMs := processAttributes["inactiveWindowTimeoutMs"]
+    inactiveWindowTimeoutPolls := processAttributes["inactiveWindowTimeoutPolls"]
+    taskRetryIntervalMs := processAttributes["taskRetryIntervalMs"]
+    taskRetryIntervalPolls := processAttributes["taskRetryIntervalPolls"]
+    invokeProcessTask := processAttributes["invokeProcessTask"]
+    isInputBlock := processAttributes["isInputBlock"]
 
     ; For every window in this process' windows
     for windowId, window in windows
@@ -813,6 +811,21 @@ registerProcesses(processes, monitorList)
     return processes
 }
 
+getProcessAttributes(process_name)
+{
+    processAttributes := Map(
+        "activeWindowTimeoutMs", getAttributeValue("ACTIVE_WINDOW_TIMEOUT_MS", process_name),
+        "inactiveWindowTimeoutMs", getAttributeValue("INACTIVE_WINDOW_TIMEOUT_MS", process_name),
+        "taskRetryIntervalMs", getAttributeValue("TASK_RETRY_INTERVAL_MS", process_name),
+        "invokeProcessTask", getAttributeValue("PROCESS_TASK", process_name),
+        "isInputBlock", getAttributeValue("TASK_INPUT_BLOCK", process_name)
+    )
+    processAttributes["activeWindowTimeoutPolls"] := getTimeoutPolls(processAttributes["activeWindowTimeoutMs"])
+    processAttributes["inactiveWindowTimeoutPolls"] := getTimeoutPolls(processAttributes["inactiveWindowTimeoutMs"])
+    processAttributes["taskRetryIntervalPolls"] := getTimeoutPolls(processAttributes["taskRetryIntervalMs"])
+    return processAttributes
+}
+
 monitorProcesses()
 {
     ; Monitoring operations START here
@@ -834,15 +847,14 @@ monitorProcesses()
                 processes.Delete(process_name)
                 continue
             }
-
-            windows := registerWindows(process["windows"], process_name)
+            processAttributes := getProcessAttributes(process_name)
+            windows := registerWindows(process["windows"], process_name, processAttributes["inactiveWindowTimeoutPolls"])
             ; No windows were found for this process, do not monitor this process' windows, skip it
             if (windows.Count < 1)
             {
                 continue
             }
-
-            monitorWindows(windows, process_name)
+            monitorWindows(windows, process_name, processAttributes)
             updateCounters(windows, process_name, monitoredCounters, managedCounters)
         }
     }
