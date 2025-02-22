@@ -11,8 +11,8 @@
 ;   read the notes of each configuration. If necessary, refer to the AutoHotkey language syntax documentation here:
 ;   https://www.autohotkey.com/docs/v2/Language.htm
 ; --------------------
-global globals := Map()
-globals["config"] := Map()
+global globalConfig := Map()
+global globalStates := Map()
 
 ; POLLING_INTERVAL_MS (Integer, Milliseconds)
 ; Description:
@@ -25,7 +25,7 @@ globals["config"] := Map()
 ;   The script will let you know about invalid values if found.
 ; Default:
 ; 5000 (5 seconds)
-globals["config"]["POLLING_INTERVAL_MS"] := 5000
+globalConfig["POLLING_INTERVAL_MS"] := 5000
 
 ; ACTIVE_WINDOW_TIMEOUT_MS (Integer, Milliseconds)
 ; Description:
@@ -41,7 +41,7 @@ globals["config"]["POLLING_INTERVAL_MS"] := 5000
 ;   The script will let you know about invalid values if found.
 ; Default:
 ; 60000 (60 seconds or 1 minute)
-globals["config"]["ACTIVE_WINDOW_TIMEOUT_MS"] := 60000
+globalConfig["ACTIVE_WINDOW_TIMEOUT_MS"] := 60000
 
 ; INACTIVE_WINDOW_TIMEOUT_MS (Integer, Milliseconds)
 ; Description:
@@ -55,7 +55,7 @@ globals["config"]["ACTIVE_WINDOW_TIMEOUT_MS"] := 60000
 ;   The script will let you know about invalid values if found.
 ; Default:
 ; 180000 (180 seconds or 3 minutes)
-globals["config"]["INACTIVE_WINDOW_TIMEOUT_MS"] := 180000
+globalConfig["INACTIVE_WINDOW_TIMEOUT_MS"] := 180000
 
 ; TASK_RETRY_INTERVAL_MS (Integer, Milliseconds)
 ; Description:
@@ -69,7 +69,7 @@ globals["config"]["INACTIVE_WINDOW_TIMEOUT_MS"] := 180000
 ;   The script will let you know about invalid values if found.
 ; Default:
 ; 30000 (30 seconds)
-globals["config"]["TASK_RETRY_INTERVAL_MS"] := 30000
+globalConfig["TASK_RETRY_INTERVAL_MS"] := 30000
 
 ; TASK_INPUT_BLOCK (Boolean)
 ; Description:
@@ -81,7 +81,7 @@ globals["config"]["TASK_RETRY_INTERVAL_MS"] := 30000
 ;   may 'leak' into the monitored window when the script moves it into focus.
 ; Default:
 ; false
-globals["config"]["TASK_INPUT_BLOCK"] := false
+globalConfig["TASK_INPUT_BLOCK"] := false
 
 ; PROCESS_TASK (Arrow Function)
 ; Description:
@@ -99,7 +99,7 @@ globals["config"]["TASK_INPUT_BLOCK"] := false
 ;     Sleep(20)
 ;     Send("{Space up}")
 ; )
-globals["config"]["PROCESS_TASK"] := () => (
+globalConfig["PROCESS_TASK"] := () => (
     Send("{Space down}")
     Sleep(20)
     Send("{Space up}")
@@ -116,7 +116,7 @@ globals["config"]["PROCESS_TASK"] := () => (
 ;     "notepad.exe",
 ;     "wordpad.exe"
 ; ]
-globals["config"]["MONITOR_LIST"] := [
+globalConfig["MONITOR_LIST"] := [
     "RobloxPlayerBeta.exe"
 ]
 
@@ -180,7 +180,7 @@ globals["config"]["MONITOR_LIST"] := [
 ;         )
 ;     )
 ; )
-globals["config"]["PROCESS_OVERRIDES"] := Map(
+globalConfig["PROCESS_OVERRIDES"] := Map(
     "RobloxPlayerBeta.exe", Map(
         "overrides", Map(
             ; 2 minutes
@@ -273,7 +273,7 @@ validateConfigAndOverrides()
     isOverridePass := true
     invalidsMsg := ""
     validationMsg := ""
-    pollingIntervalMs := globals["config"]["POLLING_INTERVAL_MS"]
+    pollingIntervalMs := globalConfig["POLLING_INTERVAL_MS"]
     if (pollingIntervalMs <= 0)
     {
         validationMsg .= Format("ERROR: The configured POLLING_INTERVAL_MS ({1}ms) is less than or equal to 0. The script will exit immediately.", pollingIntervalMs)
@@ -291,7 +291,7 @@ validateConfigAndOverrides()
         }
     }
 
-    activeWindowTimeoutMs := globals["config"]["ACTIVE_WINDOW_TIMEOUT_MS"]
+    activeWindowTimeoutMs := globalConfig["ACTIVE_WINDOW_TIMEOUT_MS"]
     configMsg := "Invalid configurations:`n"
     if (pollingIntervalMs > activeWindowTimeoutMs)
     {
@@ -315,7 +315,7 @@ validateConfigAndOverrides()
         sConfigPass := false
     }
 
-    inactiveWindowTimeoutMs := globals["config"]["INACTIVE_WINDOW_TIMEOUT_MS"]
+    inactiveWindowTimeoutMs := globalConfig["INACTIVE_WINDOW_TIMEOUT_MS"]
     if (pollingIntervalMs > inactiveWindowTimeoutMs)
     {
         configMsg .= Format("- POLLING_INTERVAL_MS ({1}ms) > INACTIVE_WINDOW_TIMEOUT_MS ({2}ms)`n", pollingIntervalMs, inactiveWindowTimeoutMs)
@@ -338,7 +338,7 @@ validateConfigAndOverrides()
         isConfigPass := false
     }
 
-    taskRetryIntervalMs := globals["config"]["TASK_RETRY_INTERVAL_MS"]
+    taskRetryIntervalMs := globalConfig["TASK_RETRY_INTERVAL_MS"]
     if (pollingIntervalMs > taskRetryIntervalMs)
     {
         configMsg .= Format("- POLLING_INTERVAL_MS ({1}ms) > TASK_RETRY_INTERVAL_MS ({2}ms)`n", pollingIntervalMs, taskRetryIntervalMs)
@@ -369,7 +369,7 @@ validateConfigAndOverrides()
     }
 
     overridesMsg := "Invalid overrides:`n"
-    for process_name, process in globals["config"]["PROCESS_OVERRIDES"]
+    for process_name, process in globalConfig["PROCESS_OVERRIDES"]
     {
         overrides := process["overrides"]
         overridesMsg .= "[" process_name "]`n"
@@ -468,8 +468,8 @@ requestElevation()
         return
     }
 
-    isAdminRequire := globals["config"]["TASK_INPUT_BLOCK"]
-    for , process in globals["config"]["PROCESS_OVERRIDES"]
+    isAdminRequire := globalConfig["TASK_INPUT_BLOCK"]
+    for , process in globalConfig["PROCESS_OVERRIDES"]
     {
         if (process["overrides"].Has("TASK_INPUT_BLOCK") && process["overrides"]["TASK_INPUT_BLOCK"])
         {
@@ -558,17 +558,17 @@ updateSystemTray(monitoredCounters, managedCounters)
     }
 
     ; Update the tray icon only if it has changed
-    if (iconNumber != globals["states"]["tray"]["lastIconNumber"])
+    if (iconNumber != globalStates["tray"]["lastIconNumber"])
     {
         TraySetIcon(A_AhkPath, iconNumber)
-        globals["states"]["tray"]["lastIconNumber"] := iconNumber
+        globalStates["tray"]["lastIconNumber"] := iconNumber
     }
 
     ; Update the tooltip only if it has changed
-    if (tooltipText != globals["states"]["tray"]["lastIconTooltipText"])
+    if (tooltipText != globalStates["tray"]["lastIconTooltipText"])
     {
         A_IconTip := tooltipText
-        globals["states"]["tray"]["lastIconTooltipText"] := tooltipText
+        globalStates["tray"]["lastIconTooltipText"] := tooltipText
     }
 }
 
@@ -659,12 +659,12 @@ activateWindow(window)
 ; If an override has not been setup for that process, the default value from the configuration for all processes will be used instead.
 getAttributeValue(attributeName, process_name)
 {
-    processOverrides := globals["config"]["PROCESS_OVERRIDES"]
+    processOverrides := globalConfig["PROCESS_OVERRIDES"]
     if (processOverrides.Has(process_name) && processOverrides[process_name]["overrides"].Has(attributeName))
     {
         return processOverrides[process_name]["overrides"][attributeName]
     }
-    return globals["config"][attributeName]
+    return globalConfig[attributeName]
 }
 
 ; Checks if a window is targetable
@@ -851,7 +851,7 @@ performProcessTask(windowId, invokeProcessTask, isInputBlock)
 
 getTimeoutpolls(timeoutMs)
 {
-    return Max(1, Ceil(timeoutMs / globals["config"]["POLLING_INTERVAL_MS"]))
+    return Max(1, Ceil(timeoutMs / globalConfig["POLLING_INTERVAL_MS"]))
 }
 
 setNewWindowStatus(window, status, polls, pollsOnly := false)
@@ -1017,9 +1017,9 @@ registerProcesses(processes, monitorList)
 monitorProcesses()
 {
     ; Monitoring operations START here
-    processes := registerProcesses(globals["states"]["processes"], globals["config"]["MONITOR_LIST"])
-    monitoredCounters := globals["states"]["tray"]["monitored"]
-    managedCounters := globals["states"]["tray"]["managed"]
+    processes := registerProcesses(globalStates["processes"], globalConfig["MONITOR_LIST"])
+    monitoredCounters := globalStates["tray"]["monitored"]
+    managedCounters := globalStates["tray"]["managed"]
 
     monitoredCounters.Clear()
     managedCounters.Clear()
@@ -1088,15 +1088,15 @@ requestElevation()
 InstallKeybdHook(true)
 InstallMouseHook(true)
 KeyHistory(0)
-globals["states"] := Map()
-globals["states"]["processes"] := Map()
-globals["states"]["tray"] := Map()
-globals["states"]["tray"] := Map()
-globals["states"]["tray"]["monitored"] := Map()
-globals["states"]["tray"]["managed"] := Map()
-globals["states"]["tray"]["lastIconNumber"] := 0
-globals["states"]["tray"]["lastIconTooltipText"] := ""
+globalStates := Map()
+globalStates["processes"] := Map()
+globalStates["tray"] := Map()
+globalStates["tray"] := Map()
+globalStates["tray"]["monitored"] := Map()
+globalStates["tray"]["managed"] := Map()
+globalStates["tray"]["lastIconNumber"] := 0
+globalStates["tray"]["lastIconTooltipText"] := ""
 ; Initiate the first poll
 monitorProcesses()
 ; Monitor the processes again according to what's configured as its polling interval
-SetTimer(monitorProcesses, globals["config"]["POLLING_INTERVAL_MS"])
+SetTimer(monitorProcesses, globalConfig["POLLING_INTERVAL_MS"])
