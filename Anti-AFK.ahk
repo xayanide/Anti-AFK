@@ -30,7 +30,6 @@ globalStates["tray"]["lastIconTooltipText"] := ""
 ;   - 0 will prevent the script from running.
 ;   - Value must not exceed the ACTIVE_WINDOW_TIMEOUT_MS, INACTIVE_WINDOW_TIMEOUT_MS, and TASK_RETRY_INTERVAL_MS.
 ;   - Value must be a common factor of ACTIVE_WINDOW_TIMEOUT_MS and INACTIVE_WINDOW_TIMEOUT_MS to ensure that the polls aligns perfectly with the timeout.
-;   The script will let you know about invalid values if found.
 ; Default:
 ; 5000 (5 seconds)
 globalConfig["POLLING_INTERVAL_MS"] := 5000
@@ -46,7 +45,6 @@ globalConfig["POLLING_INTERVAL_MS"] := 5000
 ;   Setting low values less than 3000ms (3 seconds) can be very disruptive and the script will prevent you from doing that.
 ;   - Value must not be less than the configured POLLING_INTERVAL_MS.
 ;   - Value must be divisible by POLLING_INTERVAL_MS (Divides evenly)
-;   The script will let you know about invalid values if found.
 ; Default:
 ; 60000 (60 seconds or 1 minute)
 globalConfig["ACTIVE_WINDOW_TIMEOUT_MS"] := 60000
@@ -60,7 +58,6 @@ globalConfig["ACTIVE_WINDOW_TIMEOUT_MS"] := 60000
 ;   - Setting low values less than 3000ms (3 seconds) can be very disruptive and the script will prevent you from doing that.
 ;   - Value must not be less than the configured POLLING_INTERVAL_MS.
 ;   - Value must be divisible by POLLING_INTERVAL_MS (Divides evenly)
-;   The script will let you know about invalid values if found.
 ; Default:
 ; 180000 (180 seconds or 3 minutes)
 globalConfig["INACTIVE_WINDOW_TIMEOUT_MS"] := 180000
@@ -74,7 +71,6 @@ globalConfig["INACTIVE_WINDOW_TIMEOUT_MS"] := 180000
 ;   - Setting low values less than 3000ms (3 seconds) can be very disruptive and the script will prevent you from doing that.
 ;   - Value must be less than the configured INACTIVE_WINDOW_TIMEOUT_MS.
 ;   - Value must be divisible by POLLING_INTERVAL_MS (Divides evenly)
-;   The script will let you know about invalid values if found.
 ; Default:
 ; 30000 (30 seconds)
 globalConfig["TASK_RETRY_INTERVAL_MS"] := 30000
